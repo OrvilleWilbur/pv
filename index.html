@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PV-Simulator Balkonkraftwerk</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --green:#22c55e; --blue:#3b82f6; --red:#ef4444;
+  --orange:#f97316; --purple:#a855f7; --gray:#6b7280;
+  --bg:#f1f5f9; --panel:#ffffff; --border:#e2e8f0;
+  --text:#1e293b; --muted:#64748b; --accent:#0ea5e9;
+  --yellow:#facc15;
+}
+body { font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; }
+header { background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%); color:white; padding:0.85rem 1.5rem; display:flex; align-items:center; gap:0.75rem; }
+header .logo { font-size:1.6rem; }
+header h1 { font-size:1.15rem; font-weight:700; }
+header p { font-size:0.75rem; opacity:0.65; }
+main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem; max-width:1440px; margin:0 auto; align-items:start; }
+#inputs { display:flex; flex-direction:column; gap:0.65rem; position:sticky; top:1rem; max-height:calc(100vh - 2rem); overflow-y:auto; padding-right:2px; }
+#inputs::-webkit-scrollbar { width:4px; }
+#inputs::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.card { background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.card-header { background:var(--bg); border-bottom:1px solid var(--border); padding:0.5rem 0.75rem; font-weight:700; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
+.card-body { padding:0.65rem 0.75rem; display:flex; flex-direction:column; gap:0.45rem; }
+.field { display:grid; grid-template-columns:1fr auto; align-items:center; gap:0.5rem; min-height:26px; }
+.field label, .field-full label { font-size:0.82rem; color:var(--text); display:flex; align-items:center; gap:0.2rem; flex-wrap:wrap; }
+.field input[type=number], .field-full select { padding:0.25rem 0.4rem; border:1px solid var(--border); border-radius:4px; font-size:0.82rem; background:var(--panel); color:var(--text); transition:border-color .15s; }
+.field input[type=number] { width:86px; text-align:right; }
+.field input[type=number]:focus, .field-full select:focus { outline:none; border-color:var(--accent); }
+.field-full { display:flex; flex-direction:column; gap:0.2rem; }
+.field-full select { width:100%; }
+.range-row { display:flex; flex-direction:column; gap:0.2rem; }
+.range-row .rl { font-size:0.82rem; display:flex; justify-content:space-between; align-items:center; }
+.range-row .val { font-weight:700; color:var(--accent); min-width:38px; text-align:right; }
+.range-row input[type=range] { width:100%; accent-color:var(--accent); height:4px; cursor:pointer; }
+.night-row { display:flex; justify-content:space-between; align-items:center; }
+.night-row span:first-child { font-size:0.82rem; color:var(--muted); }
+.night-row span:last-child { font-size:0.82rem; font-weight:600; color:var(--muted); }
+.sub-field { display:grid; grid-template-columns:1fr auto; align-items:center; gap:0.5rem; padding-left:0.8rem; }
+.sub-field label { font-size:0.78rem; color:var(--muted); display:flex; align-items:center; gap:0.2rem; }
+.sub-field input[type=number] { width:54px; text-align:right; padding:0.2rem 0.35rem; border:1px solid var(--border); border-radius:4px; font-size:0.78rem; background:var(--panel); color:var(--text); }
+.sub-field .sub-unit { font-size:0.72rem; color:var(--muted); white-space:nowrap; }
+.section-label { font-size:0.72rem; color:var(--muted); padding-top:0.15rem; border-top:1px solid var(--border); margin-top:0.15rem; padding-bottom:0.1rem; }
+.hint { font-size:0.72rem; color:var(--orange); display:none; padding:0.15rem 0; }
+.hint.visible { display:block; }
+/* Infobox Tooltip */
+.info-btn { position:relative; display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%; background:var(--accent); color:white; font-size:0.62rem; cursor:pointer; border:none; font-weight:700; flex-shrink:0; line-height:1; }
+.info-btn .tip { display:none; position:absolute; left:18px; top:-2px; background:#1e293b; color:#f8fafc; font-size:0.73rem; line-height:1.4; padding:0.4rem 0.6rem; border-radius:5px; z-index:200; width:210px; white-space:normal; box-shadow:0 4px 12px rgba(0,0,0,0.25); pointer-events:none; }
+.info-btn.open .tip { display:block; }
+.info-btn .tip::before { content:''; position:absolute; right:100%; top:6px; border:5px solid transparent; border-right-color:#1e293b; }
+.kwp-tag { font-size:0.72rem; color:var(--accent); font-weight:600; text-align:right; }
+.btn { width:100%; padding:0.55rem; border:none; border-radius:6px; font-size:0.88rem; font-weight:700; cursor:pointer; transition:opacity .15s,transform .1s; }
+.btn:hover { opacity:.88; }
+.btn:active { transform:scale(.98); }
+.btn:disabled { opacity:.6; cursor:not-allowed; }
+.btn-opt { background:linear-gradient(135deg,#0ea5e9,#3b82f6); color:white; }
+#results { display:flex; flex-direction:column; gap:0.85rem; }
+.kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.65rem; }
+.kpi-card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:0.75rem; text-align:center; }
+.kpi-card .kv { font-size:1.5rem; font-weight:800; color:var(--accent); line-height:1.1; }
+.kpi-card .ku { font-size:0.7rem; color:var(--muted); }
+.kpi-card .kl { font-size:0.75rem; color:var(--muted); margin-top:0.2rem; }
+.kpi-card .ks { font-size:0.65rem; color:var(--muted); }
+.chart-wrap { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:0.85rem; }
+.chart-wrap h3 { font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+.chart-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; }
+.chart-head h3 { margin-bottom:0; }
+.chart-select { font-size:0.78rem; padding:0.2rem 0.4rem; border:1px solid var(--border); border-radius:4px; background:var(--panel); color:var(--text); cursor:pointer; }
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:0.85rem; }
+.fin-table { width:100%; border-collapse:collapse; font-size:0.83rem; }
+.fin-table td { padding:0.42rem 0.65rem; border-bottom:1px solid var(--border); }
+.fin-table tr:last-child td { border-bottom:none; }
+.fin-table .ft-label { color:var(--muted); }
+.fin-table .ft-val { text-align:right; font-weight:600; }
+.fin-table .ft-sep td { height:6px; border-bottom:2px solid var(--border); }
+.fin-table .ft-total td { font-weight:700; font-size:0.9rem; }
+.fin-table .ft-hl td { background:var(--bg); }
+#optResults { display:none; }
+#optResults.visible { display:block; }
+.opt-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+.opt-table th { padding:0.4rem 0.6rem; background:var(--bg); border-bottom:2px solid var(--border); text-align:right; font-size:0.72rem; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+.opt-table th:first-child { text-align:left; }
+.opt-table td { padding:0.4rem 0.6rem; border-bottom:1px solid var(--border); text-align:right; }
+.opt-table td:first-child { text-align:left; font-weight:700; }
+.opt-table tr:last-child td { border-bottom:none; }
+.opt-table tr:first-child td { color:var(--orange); }
+@media(max-width:920px) {
+  main { grid-template-columns:1fr; }
+  #inputs { position:static; max-height:none; }
+  .kpi-grid { grid-template-columns:repeat(2,1fr); }
+  .two-col { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">☀️</div>
+  <div>
+    <h1>PV-Simulator Balkonkraftwerk</h1>
+    <p>Eigenverbrauch · Einspeisung · Deckungsgrad · Amortisation</p>
+  </div>
+</header>
+
+<main>
+<aside id="inputs">
+
+  <div class="card">
+    <div class="card-header">⚡ Anlage</div>
+    <div class="card-body">
+      <div class="field">
+        <label>Anzahl Module</label>
+        <input type="number" id="nModules" value="4" min="1" max="16">
+      </div>
+      <div class="field">
+        <label>Wp pro Modul <button class="info-btn"><span class="tip">Nennleistung unter Standardtestbedingungen (STC): 1000 W/m² Einstrahlung, 25°C.</span>?</button></label>
+        <input type="number" id="wpPerModule" value="500" min="100" max="600" step="10">
+      </div>
+      <div class="kwp-tag" id="kwpDisplay">Gesamt: 2,0 kWp</div>
+      <div class="field">
+        <label>Anzahl Wechselrichter <button class="info-btn"><span class="tip">Jeder WR hat ein eigenes AC-Limit. Solakon ONE = 1 WR mit 800 W AC-Limit und 2,11 kWh Basis-Speicher.</span>?</button></label>
+        <input type="number" id="nWR" value="1" min="1" max="3">
+      </div>
+      <div class="field">
+        <label>AC-Limit pro WR (W) <button class="info-btn"><span class="tip">Gesetzliche Einspeisegrenze für Balkonkraftwerke: 800 W seit 2024.</span>?</button></label>
+        <input type="number" id="acLimit" value="800" min="600" max="2000" step="100">
+      </div>
+      <div class="field">
+        <label>Speicherkapazität (kWh) <button class="info-btn"><span class="tip">Nutzbare Kapazität nach Entladetiefe (DoD). Jeder Solakon ONE enthält bereits 2,11 kWh — weitere kWh kosten extra (s. Finanzen).</span>?</button></label>
+        <input type="number" id="batKWh" value="2.0" min="0" max="20" step="0.5">
+      </div>
+      <div class="field">
+        <label>Batteriewirkungsgrad (%) <button class="info-btn"><span class="tip">Verluste beim Laden und Entladen (Round-Trip). 92% = typisch LiFePO₄.</span>?</button></label>
+        <input type="number" id="batEff" value="92" min="80" max="98" step="1">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">📍 Standort</div>
+    <div class="card-body">
+      <div class="field-full">
+        <label>Standort</label>
+        <select id="location"></select>
+      </div>
+      <div class="field">
+        <label>Derating (%) <button class="info-btn"><span class="tip">0% = optimal (Süd, kein Schatten). 20% = leichte Schatten. 50% = Flachdach verschattet. 70%+ = stark verschattet.</span>?</button></label>
+        <input type="number" id="derating" value="20" min="0" max="90" step="5">
+      </div>
+      <div class="field">
+        <label>Schneetage/Jahr</label>
+        <input type="number" id="snowDays" value="0" min="0" max="90">
+      </div>
+      <div class="hint" id="snowHint"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">🏠 Verbrauch</div>
+    <div class="card-body">
+      <div class="field">
+        <label>Jahresverbrauch (kWh) <button class="info-btn"><span class="tip">Gesamter Haushaltsstrom pro Jahr inkl. aller Verbraucher.</span>?</button></label>
+        <input type="number" id="yearlyConsumption" value="4000" min="500" max="20000" step="100">
+      </div>
+      <div class="range-row">
+        <div class="rl">
+          <span>Grundlast-Anteil <button class="info-btn"><span class="tip">Anteil des Verbrauchs, der 24/7 konstant anfällt: Kühlschränke, Router, Standby, Heizungspumpe. Bei 4000 kWh / 65% ≈ 297 W Dauerverbrauch.</span>?</button></span>
+          <span class="val" id="baseFractionVal">65%</span>
+        </div>
+        <input type="range" id="baseFraction" value="65" min="0" max="100">
+      </div>
+
+      <div class="section-label">Restverbrauch-Verteilung (Σ = 100%):</div>
+
+      <div class="range-row">
+        <div class="rl">
+          <span>Vormittag (6–14 Uhr) <button class="info-btn"><span class="tip">Kochen, Waschen, Geschirrspüler — Anteil am Restverbrauch</span>?</button></span>
+          <span class="val" id="morningFractionVal">50%</span>
+        </div>
+        <input type="range" id="morningFraction" value="50" min="0" max="100">
+      </div>
+      <div class="sub-field">
+        <label>↳ Aktive Std. <button class="info-btn"><span class="tip">In wie vielen der 8 Stunden (6–14 Uhr) verbrauchst du tatsächlich Strom über die Grundlast hinaus? 4h = z.B. Berufstätige aktiv 6–10 Uhr, dann Haus leer.</span>?</button></label>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="morningActiveH" value="4" min="1" max="8" step="1">
+          <span class="sub-unit">/ 8 Std.</span>
+        </div>
+      </div>
+
+      <div class="range-row">
+        <div class="rl">
+          <span>Nachmittag (14–22 Uhr) <button class="info-btn"><span class="tip">Kochen, TV, Licht — Anteil am Restverbrauch</span>?</button></span>
+          <span class="val" id="afternoonFractionVal">50%</span>
+        </div>
+        <input type="range" id="afternoonFraction" value="50" min="0" max="100">
+      </div>
+      <div class="sub-field">
+        <label>↳ Aktive Std. <button class="info-btn"><span class="tip">In wie vielen der 8 Stunden (14–22 Uhr) verbrauchst du tatsächlich Strom über die Grundlast hinaus? 4h = erste Hälfte aktiv, 18–22 Uhr nur Grundlast.</span>?</button></label>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="afternoonActiveH" value="4" min="1" max="8" step="1">
+          <span class="sub-unit">/ 8 Std.</span>
+        </div>
+      </div>
+
+      <div class="night-row">
+        <span>Nacht (22–6 Uhr)</span>
+        <span id="nightFractionDisplay">0%</span>
+      </div>
+      <div class="sub-field">
+        <label>↳ Aktive Std. <button class="info-btn"><span class="tip">In wie vielen der 8 Stunden (22–6 Uhr) verbrauchst du Strom über die Grundlast hinaus? 4h = aktiv 22–2 Uhr, danach nur Grundlast.</span>?</button></label>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="nightActiveH" value="4" min="1" max="8" step="1">
+          <span class="sub-unit">/ 8 Std.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">💰 Finanzen</div>
+    <div class="card-body">
+      <div class="field">
+        <label>Strompreis (ct/kWh) <button class="info-btn"><span class="tip">Aktueller Arbeitspreis inkl. Steuern und Abgaben. Basis für Ersparnis-Berechnung.</span>?</button></label>
+        <input type="number" id="electricityPrice" value="35" min="10" max="70" step="0.5">
+      </div>
+      <div class="field">
+        <label>Einspeisevergütung (ct/kWh)</label>
+        <input type="number" id="feedInRate" value="8.0" min="0" max="25" step="0.5">
+      </div>
+      <div class="field">
+        <label>Kosten pro Modul (€)</label>
+        <input type="number" id="moduleCost" value="70" min="20" max="500">
+      </div>
+      <div class="field">
+        <label>Kosten pro WR (€) <button class="info-btn"><span class="tip">z.B. Solakon ONE inkl. 2,11 kWh LiFePO₄-Speicher. Enthält Basis-Batterie — zusätzliche kWh unten berechnen.</span>?</button></label>
+        <input type="number" id="wrCost" value="669" min="100" max="3000">
+      </div>
+      <div class="field">
+        <label>Batteriekosten/kWh (€) <button class="info-btn"><span class="tip">Kosten für Speicher über die im WR enthaltenen 2,11 kWh hinaus. Jeder Solakon ONE enthält 2,11 kWh — Extra-kWh kosten ca. 200 €/kWh.</span>?</button></label>
+        <input type="number" id="batteryCostPerKwh" value="200" min="0" max="500" step="10">
+      </div>
+      <div class="field">
+        <label>Sonstige Kosten (€) <button class="info-btn"><span class="tip">Shelly 3EM (90 €), Kabel, Aufständerung (150 €).</span>?</button></label>
+        <input type="number" id="otherCost" value="240" min="0" max="2000">
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-opt" id="optimizeBtn">🔍 Optimale Konfiguration finden</button>
+
+</aside>
+
+<section id="results">
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kv" id="kpiPvTotal">–</div>
+      <div class="ku">kWh/Jahr</div>
+      <div class="kl">PV-Produktion</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kv" id="kpiEigenverbrauch">–</div>
+      <div class="ku">kWh/Jahr</div>
+      <div class="kl">Eigenverbrauch</div>
+      <div class="ks" id="kpiEVPct"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kv" id="kpiDeckung">–</div>
+      <div class="ku">%</div>
+      <div class="kl">Deckungsgrad</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kv" id="kpiNetz">–</div>
+      <div class="ku">kWh/Jahr</div>
+      <div class="kl">Netzbezug</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kv" id="kpiEinspeisung">–</div>
+      <div class="ku">kWh/Jahr</div>
+      <div class="kl">Einspeisung</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kv" id="kpiKappung">–</div>
+      <div class="ku">kWh/Jahr</div>
+      <div class="kl">Kappung</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-head">
+      <h3>📊 Monatliche Energiebilanz</h3>
+    </div>
+    <canvas id="monthlyChart" height="110"></canvas>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-head">
+      <h3>🕐 Typischer Tag (Stundenprofil)</h3>
+      <select class="chart-select" id="dailyMonthSelect">
+        <option value="0">Jahresmittel</option>
+        <option value="1">Januar</option><option value="2">Februar</option>
+        <option value="3">März</option><option value="4">April</option>
+        <option value="5">Mai</option><option value="6">Juni</option>
+        <option value="7">Juli</option><option value="8">August</option>
+        <option value="9">September</option><option value="10">Oktober</option>
+        <option value="11">November</option><option value="12">Dezember</option>
+      </select>
+    </div>
+    <canvas id="dailyChart" height="120"></canvas>
+  </div>
+
+  <div class="two-col">
+    <div class="chart-wrap">
+      <h3 style="margin-bottom:0.6rem;">💶 Finanzkalkulation</h3>
+      <table class="fin-table">
+        <tr><td class="ft-label">Jährliche Ersparnis</td><td class="ft-val" id="finSavings">–</td></tr>
+        <tr><td class="ft-label">Einspeiseerlös/Jahr</td><td class="ft-val" id="finFeed">–</td></tr>
+        <tr class="ft-hl"><td class="ft-label" style="font-weight:700;">Gesamtertrag/Jahr</td><td class="ft-val" id="finTotal">–</td></tr>
+        <tr class="ft-sep"><td colspan="2"></td></tr>
+        <tr><td class="ft-label">Gesamtinvestition</td><td class="ft-val" id="finInvestment">–</td></tr>
+        <tr class="ft-hl"><td class="ft-label" style="font-weight:700;">Amortisationszeit</td><td class="ft-val" id="finAmort">–</td></tr>
+        <tr class="ft-total ft-hl"><td class="ft-label">10-Jahres-Gewinn</td><td class="ft-val" id="finProfit10">–</td></tr>
+      </table>
+    </div>
+    <div class="chart-wrap">
+      <h3 style="margin-bottom:0.6rem;">📈 Amortisationskurve</h3>
+      <canvas id="amortChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="chart-wrap">
+      <h3 style="margin-bottom:0.6rem;">🥧 Wohin geht der PV-Strom?</h3>
+      <canvas id="pieChart" height="200"></canvas>
+    </div>
+    <div class="chart-wrap" id="optResults">
+      <h3 style="margin-bottom:0.6rem;">🏆 Optimale Konfigurationen</h3>
+      <table class="opt-table">
+        <thead>
+          <tr><th>Rang</th><th>Module</th><th>Speicher</th><th>(WR)</th><th>Investition</th><th>Ertrag/a</th><th>Amort.</th><th>10J-Gewinn</th></tr>
+        </thead>
+        <tbody id="optTableBody"></tbody>
+      </table>
+      <p style="font-size:0.72rem;color:var(--muted);padding:0.5rem 0.6rem 0;">WR-Anzahl ergibt sich aus Modulzahl (max. 4 Module pro Wechselrichter).</p>
+    </div>
+  </div>
+
+</section>
+</main>
+
+<script>
+// ===== LOCATION DATA =====
+const LOCATIONS = {
+  "Kiel (SH)":              {irradiance:[0.53,1.11,2.30,4.19,5.14,5.49,5.19,4.23,3.05,1.64,0.72,0.40],elevation:5},
+  "Hamburg (HH)":            {irradiance:[0.58,1.23,2.39,4.20,4.97,5.39,5.23,4.23,3.13,1.71,0.77,0.46],elevation:6},
+  "Schwerin (MV)":           {irradiance:[0.56,1.22,2.40,4.23,5.05,5.51,5.17,4.28,3.15,1.70,0.75,0.44],elevation:38},
+  "Bremen (HB)":             {irradiance:[0.60,1.28,2.46,4.22,4.97,5.36,5.19,4.28,3.15,1.76,0.82,0.49],elevation:5},
+  "Hannover (NI)":           {irradiance:[0.68,1.35,2.53,4.27,4.98,5.46,5.22,4.32,3.22,1.79,0.87,0.56],elevation:55},
+  "Göttingen (NI-Süd)":      {irradiance:[0.70,1.36,2.61,4.30,4.97,5.45,5.30,4.43,3.30,1.86,0.91,0.58],elevation:150},
+  "Münster (NW)":            {irradiance:[0.70,1.37,2.62,4.28,4.97,5.40,5.23,4.40,3.22,1.85,0.92,0.56],elevation:60},
+  "Düsseldorf (NW)":         {irradiance:[0.78,1.44,2.66,4.27,4.98,5.42,5.24,4.35,3.26,1.89,0.98,0.61],elevation:38},
+  "Siegen (NW-Süd)":         {irradiance:[0.71,1.36,2.59,4.21,4.73,5.29,5.19,4.37,3.21,1.80,0.88,0.58],elevation:260},
+  "Kassel (HE-Nord)":        {irradiance:[0.71,1.36,2.60,4.26,4.88,5.36,5.22,4.37,3.24,1.81,0.88,0.56],elevation:166},
+  "Wiesbaden (HE)":          {irradiance:[0.85,1.56,2.89,4.60,5.17,5.77,5.67,4.74,3.55,1.99,0.99,0.66],elevation:115},
+  "Mainz (RP)":              {irradiance:[0.86,1.59,2.95,4.68,5.27,5.88,5.71,4.78,3.60,2.03,1.01,0.67],elevation:86},
+  "Saarbrücken (SL)":        {irradiance:[0.87,1.58,2.87,4.53,5.11,5.82,5.74,4.73,3.62,2.05,1.05,0.70],elevation:230},
+  "Stuttgart (BW)":          {irradiance:[1.01,1.73,3.02,4.49,5.02,5.71,5.67,4.76,3.64,2.22,1.26,0.87],elevation:245},
+  "Freiburg (BW-Süd)":       {irradiance:[0.99,1.72,2.85,4.18,4.59,5.34,5.38,4.65,3.55,2.19,1.23,0.85],elevation:278},
+  "Würzburg (BY-Nord)":      {irradiance:[0.85,1.58,2.83,4.62,5.28,5.90,5.74,4.80,3.63,2.08,1.07,0.71],elevation:177},
+  "München (BY)":            {irradiance:[1.06,1.84,3.00,4.49,4.87,5.49,5.58,4.80,3.54,2.26,1.30,0.95],elevation:519},
+  "Passau (BY-Ost)":         {irradiance:[0.68,1.70,2.92,4.58,5.03,5.69,5.67,4.85,3.53,2.14,0.96,0.52],elevation:312},
+  "Berlin (BE)":             {irradiance:[0.69,1.41,2.55,4.40,5.12,5.71,5.39,4.62,3.35,1.83,0.88,0.56],elevation:34},
+  "Potsdam (BB)":            {irradiance:[0.69,1.42,2.52,4.39,5.10,5.68,5.40,4.62,3.36,1.84,0.89,0.56],elevation:32},
+  "Magdeburg (ST)":          {irradiance:[0.72,1.42,2.61,4.44,5.19,5.80,5.47,4.59,3.37,1.91,0.93,0.60],elevation:56},
+  "Dresden (SN)":            {irradiance:[0.78,1.49,2.63,4.34,5.02,5.43,5.44,4.54,3.33,1.99,1.05,0.70],elevation:113},
+  "Erfurt (TH)":             {irradiance:[0.78,1.43,2.64,4.31,4.96,5.49,5.39,4.48,3.31,1.91,1.00,0.67],elevation:195},
+  "Schmiedefeld (TH, 720m)": {irradiance:[0.66,1.30,2.48,4.12,4.67,5.13,5.15,4.25,3.15,1.71,0.83,0.51],elevation:720}
+};
+
+const SUNRISE_SUNSET = {
+  "Kiel (SH)":              {1:[7.33,14.96],2:[6.49,15.99],3:[5.39,16.93],4:[4.11,17.90],5:[3.06,18.81],6:[2.55,19.45],7:[2.86,19.33],8:[3.69,18.47],9:[4.61,17.24],10:[5.54,15.98],11:[6.58,14.92],12:[7.36,14.47]},
+  "Hamburg (HH)":            {1:[7.26,15.03],2:[6.45,16.03],3:[5.38,16.94],4:[4.13,17.88],5:[3.12,18.75],6:[2.63,19.37],7:[2.93,19.26],8:[3.73,18.43],9:[4.62,17.23],10:[5.51,16.01],11:[6.52,14.97],12:[7.28,14.55]},
+  "Schwerin (MV)":           {1:[7.27,15.02],2:[6.45,16.02],3:[5.38,16.94],4:[4.13,17.88],5:[3.11,18.76],6:[2.62,19.38],7:[2.92,19.27],8:[3.73,18.43],9:[4.62,17.23],10:[5.52,16.00],11:[6.53,14.97],12:[7.29,14.55]},
+  "Bremen (HB)":             {1:[7.22,15.07],2:[6.43,16.05],3:[5.38,16.94],4:[4.15,17.86],5:[3.15,18.72],6:[2.67,19.33],7:[2.97,19.22],8:[3.76,18.41],9:[4.62,17.22],10:[5.50,16.02],11:[6.49,15.00],12:[7.24,14.60]},
+  "Hannover (NI)":           {1:[7.16,15.12],2:[6.40,16.08],3:[5.37,16.95],4:[4.17,17.84],5:[3.20,18.67],6:[2.74,19.26],7:[3.03,19.16],8:[3.79,18.37],9:[4.63,17.21],10:[5.48,16.04],11:[6.44,15.05],12:[7.17,14.67]},
+  "Göttingen (NI-Süd)":      {1:[7.10,15.19],2:[6.36,16.11],3:[5.37,16.95],4:[4.19,17.81],5:[3.25,18.62],6:[2.82,19.18],7:[3.10,19.09],8:[3.83,18.33],9:[4.64,17.21],10:[5.46,16.06],11:[6.39,15.10],12:[7.09,14.74]},
+  "Münster (NW)":            {1:[7.13,15.16],2:[6.38,16.10],3:[5.37,16.95],4:[4.18,17.83],5:[3.23,18.64],6:[2.78,19.22],7:[3.07,19.13],8:[3.81,18.35],9:[4.63,17.21],10:[5.47,16.05],11:[6.42,15.08],12:[7.13,14.70]},
+  "Düsseldorf (NW)":         {1:[7.07,15.21],2:[6.35,16.13],3:[5.37,16.96],4:[4.20,17.81],5:[3.27,18.60],6:[2.84,19.16],7:[3.12,19.07],8:[3.85,18.32],9:[4.64,17.20],10:[5.45,16.07],11:[6.37,15.12],12:[7.07,14.77]},
+  "Siegen (NW-Süd)":         {1:[7.05,15.24],2:[6.33,16.14],3:[5.36,16.96],4:[4.21,17.80],5:[3.30,18.57],6:[2.87,19.13],7:[3.15,19.04],8:[3.86,18.30],9:[4.65,17.20],10:[5.44,16.08],11:[6.35,15.15],12:[7.04,14.80]},
+  "Kassel (HE-Nord)":        {1:[7.08,15.21],2:[6.35,16.12],3:[5.37,16.96],4:[4.20,17.81],5:[3.27,18.60],6:[2.83,19.17],7:[3.12,19.08],8:[3.84,18.32],9:[4.64,17.20],10:[5.45,16.07],11:[6.38,15.12],12:[7.08,14.76]},
+  "Wiesbaden (HE)":          {1:[6.99,15.30],2:[6.30,16.17],3:[5.36,16.96],4:[4.23,17.77],5:[3.34,18.53],6:[2.94,19.06],7:[3.21,18.98],8:[3.90,18.27],9:[4.65,17.19],10:[5.42,16.10],11:[6.30,15.19],12:[6.97,14.86]},
+  "Mainz (RP)":              {1:[6.98,15.30],2:[6.30,16.17],3:[5.36,16.96],4:[4.24,17.77],5:[3.35,18.52],6:[2.95,19.06],7:[3.22,18.98],8:[3.90,18.26],9:[4.65,17.19],10:[5.42,16.10],11:[6.30,15.20],12:[6.97,14.87]},
+  "Saarbrücken (SL)":        {1:[6.93,15.36],2:[6.27,16.20],3:[5.35,16.97],4:[4.26,17.75],5:[3.39,18.48],6:[3.01,18.99],7:[3.27,18.92],8:[3.93,18.23],9:[4.66,17.18],10:[5.40,16.12],11:[6.25,15.24],12:[6.90,14.93]},
+  "Stuttgart (BW)":          {1:[6.90,15.39],2:[6.25,16.22],3:[5.35,16.97],4:[4.27,17.74],5:[3.42,18.45],6:[3.04,18.96],7:[3.30,18.89],8:[3.95,18.21],9:[4.67,17.18],10:[5.39,16.13],11:[6.23,15.27],12:[6.87,14.97]},
+  "Freiburg (BW-Süd)":       {1:[6.85,15.44],2:[6.23,16.25],3:[5.34,16.98],4:[4.29,17.72],5:[3.46,18.41],6:[3.10,18.90],7:[3.35,18.84],8:[3.98,18.18],9:[4.67,17.17],10:[5.38,16.14],11:[6.19,15.31],12:[6.81,15.02]},
+  "Würzburg (BY-Nord)":      {1:[6.97,15.32],2:[6.29,16.18],3:[5.36,16.97],4:[4.24,17.77],5:[3.36,18.51],6:[2.96,19.04],7:[3.23,18.96],8:[3.91,18.25],9:[4.66,17.19],10:[5.42,16.10],11:[6.29,15.21],12:[6.95,14.89]},
+  "München (BY)":            {1:[6.86,15.43],2:[6.23,16.24],3:[5.34,16.98],4:[4.29,17.72],5:[3.45,18.41],6:[3.09,18.91],7:[3.34,18.85],8:[3.98,18.18],9:[4.67,17.17],10:[5.38,16.14],11:[6.19,15.30],12:[6.82,15.01]},
+  "Passau (BY-Ost)":         {1:[6.89,15.40],2:[6.25,16.23],3:[5.35,16.97],4:[4.28,17.73],5:[3.43,18.44],6:[3.06,18.94],7:[3.32,18.88],8:[3.96,18.20],9:[4.67,17.18],10:[5.39,16.13],11:[6.22,15.28],12:[6.85,14.98]},
+  "Berlin (BE)":             {1:[7.18,15.11],2:[6.40,16.07],3:[5.38,16.95],4:[4.16,17.84],5:[3.19,18.68],6:[2.73,19.27],7:[3.02,19.17],8:[3.78,18.38],9:[4.63,17.22],10:[5.49,16.03],11:[6.45,15.04],12:[7.18,14.65]},
+  "Potsdam (BB)":            {1:[7.17,15.12],2:[6.40,16.08],3:[5.37,16.95],4:[4.17,17.84],5:[3.20,18.67],6:[2.74,19.26],7:[3.03,19.16],8:[3.79,18.37],9:[4.63,17.21],10:[5.48,16.04],11:[6.45,15.05],12:[7.17,14.66]},
+  "Magdeburg (ST)":          {1:[7.14,15.14],2:[6.39,16.09],3:[5.37,16.95],4:[4.18,17.83],5:[3.21,18.65],6:[2.76,19.24],7:[3.05,19.14],8:[3.80,18.36],9:[4.63,17.21],10:[5.48,16.04],11:[6.43,15.07],12:[7.15,14.69]},
+  "Dresden (SN)":            {1:[7.06,15.23],2:[6.34,16.13],3:[5.36,16.96],4:[4.21,17.80],5:[3.28,18.58],6:[2.86,19.14],7:[3.14,19.06],8:[3.85,18.31],9:[4.64,17.20],10:[5.45,16.07],11:[6.36,15.13],12:[7.05,14.78]},
+  "Erfurt (TH)":             {1:[7.06,15.23],2:[6.34,16.14],3:[5.36,16.96],4:[4.21,17.80],5:[3.29,18.58],6:[2.86,19.14],7:[3.14,19.05],8:[3.86,18.31],9:[4.64,17.20],10:[5.45,16.07],11:[6.36,15.14],12:[7.05,14.79]},
+  "Schmiedefeld (TH, 720m)": {1:[7.03,15.26],2:[6.32,16.15],3:[5.36,16.96],4:[4.22,17.79],5:[3.31,18.56],6:[2.89,19.11],7:[3.17,19.02],8:[3.87,18.29],9:[4.65,17.20],10:[5.44,16.08],11:[6.34,15.16],12:[7.02,14.82]}
+};
+
+const DAYS_PER_MONTH = [0,31,28,31,30,31,30,31,31,30,31,30,31];
+const MONTH_NAMES = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const SNOW_DIST = {1:0.30,2:0.25,3:0.10,11:0.10,12:0.25};
+
+// ===== SCHNEETAGE DEFAULT (spec V1.2 Tabelle) =====
+function defaultSnowDays(elevation) {
+  if (elevation < 200) return 0;
+  if (elevation < 400) return 5;
+  if (elevation < 600) return 15;
+  return 34; // 600–800m
+}
+
+// ===== LOAD PROFILE (mit Aktive Stunden) =====
+function computeHourlyLoadW(p) {
+  const baseLoadW = (p.yearlyConsumption * p.baseFraction / 100) / 8760 * 1000;
+  const restKWh   = p.yearlyConsumption * (1 - p.baseFraction / 100);
+  const nightFrac = Math.max(0, 100 - p.morningFraction - p.afternoonFraction);
+
+  // Aktive Stunden direkt (1–8)
+  const mActH = Math.max(1, Math.min(8, p.morningActiveH  || 4));
+  const aActH = Math.max(1, Math.min(8, p.afternoonActiveH|| 4));
+  const nActH = Math.max(1, Math.min(8, p.nightActiveH    || 4));
+
+  // Variable Last W während aktiver Phase
+  const mW = (restKWh * p.morningFraction   / 100) / (365 * mActH) * 1000;
+  const aW = (restKWh * p.afternoonFraction / 100) / (365 * aActH) * 1000;
+  const nW = (restKWh * nightFrac           / 100) / (365 * nActH) * 1000;
+
+  return Array.from({length:24}, (_, h) => {
+    const hm = h + 0.5;
+    let varLoad = 0;
+    if (hm >= 6 && hm < 14) {
+      if (hm < 6 + mActH) varLoad = mW;
+    } else if (hm >= 14 && hm < 22) {
+      if (hm < 14 + aActH) varLoad = aW;
+    } else {
+      // Nacht (22–6): erste nActH Stunden ab 22:00
+      const rel = hm >= 22 ? hm - 22 : hm + 2;
+      if (rel < nActH) varLoad = nW;
+    }
+    return baseLoadW + varLoad;
+  });
+}
+
+// ===== SIMULATION =====
+function buildWeights(sunrise, sunset) {
+  const dayLen = sunset - sunrise;
+  const w = new Float64Array(24);
+  let tw = 0;
+  for (let h = 0; h < 24; h++) {
+    const hm = h + 0.5;
+    if (hm >= sunrise && hm <= sunset) {
+      w[h] = Math.sin((hm - sunrise) / dayLen * Math.PI);
+      tw += w[h];
+    }
+  }
+  return {w, tw};
+}
+
+function simulateYear(p) {
+  const acMaxW   = p.nWR * p.acLimitPerWR;
+  const totalKWp = p.nModules * p.wpPerModule / 1000;
+  const loc      = LOCATIONS[p.location];
+  const sunTimes = SUNRISE_SUNSET[p.location];
+  const batEff   = p.batEff / 100;
+  const hourlyLoadW = computeHourlyLoadW(p);
+
+  const snowPerMonth = {};
+  for (let m = 1; m <= 12; m++) snowPerMonth[m] = Math.round((SNOW_DIST[m] || 0) * p.snowDays);
+
+  const keys = ['pv_produced','pv_to_load','bat_to_load','pv_to_battery','pv_to_grid','pv_curtailed','grid_to_load'];
+  const monthly = {};
+  let batSOC = 0;
+
+  for (let month = 1; month <= 12; month++) {
+    const [sunrise, sunset] = sunTimes[month];
+    const {w, tw} = buildWeights(sunrise, sunset);
+    const dailyProdKWh = loc.irradiance[month-1] * totalKWp * (1 - p.derating / 100);
+    const snowD = snowPerMonth[month] || 0;
+
+    const mo = {pv_produced:0,pv_to_load:0,bat_to_load:0,pv_to_battery:0,pv_to_grid:0,pv_curtailed:0,grid_to_load:0};
+
+    // Hourly accumulators for daily-average chart
+    const hPv       = new Float64Array(24);
+    const hPvToLoad = new Float64Array(24);
+    const hBatToLoad= new Float64Array(24);
+    const hGrid     = new Float64Array(24);
+
+    for (let day = 0; day < DAYS_PER_MONTH[month]; day++) {
+      const isSnow = day < snowD;
+      for (let h = 0; h < 24; h++) {
+        const loadW   = hourlyLoadW[h];
+        const loadKWh = loadW / 1000;
+        const pvW = (!isSnow && tw > 0 && w[h] > 0) ? (w[h] / tw) * dailyProdKWh * 1000 : 0;
+
+        mo.pv_produced += pvW / 1000;
+        hPv[h] += pvW / 1000;
+
+        if (pvW > 0) {
+          const pvForLoadW   = Math.min(pvW, loadW, acMaxW);
+          const pvForLoadKWh = pvForLoadW / 1000;
+          mo.pv_to_load += pvForLoadKWh;
+          hPvToLoad[h]  += pvForLoadKWh;
+          let remLoad = loadKWh - pvForLoadKWh;
+          let remPvW  = pvW - pvForLoadW;
+
+          // Bug 3: AC-Limit für Tages-Batterieentladung
+          if (remLoad > 1e-9 && batSOC > 1e-9) {
+            const acRemainingKWh = Math.max(0, acMaxW / 1000 - pvForLoadKWh);
+            const dis = Math.min(remLoad / batEff, batSOC, acRemainingKWh / batEff);
+            const del = dis * batEff;
+            batSOC -= dis; mo.bat_to_load += del; hBatToLoad[h] += del; remLoad -= del;
+          }
+          if (remLoad > 1e-6) { mo.grid_to_load += remLoad; hGrid[h] += remLoad; }
+
+          if (remPvW > 1e-6 && batSOC < p.batKWh) {
+            const stored = Math.min(remPvW / 1000 * batEff, p.batKWh - batSOC);
+            batSOC += stored;
+            const used = stored / batEff;
+            mo.pv_to_battery += used; remPvW -= used * 1000;
+          }
+          if (remPvW > 1e-6) {
+            const acRem  = Math.max(0, acMaxW - pvForLoadW);
+            const toGrid = Math.min(remPvW, acRem);
+            mo.pv_to_grid += toGrid / 1000; remPvW -= toGrid;
+          }
+          if (remPvW > 0.1) mo.pv_curtailed += remPvW / 1000;
+
+        } else {
+          // Bug 2: AC-Limit bei Nacht-Entladung
+          if (batSOC > 1e-9) {
+            const dis = Math.min(loadKWh / batEff, batSOC, acMaxW / 1000 / batEff);
+            const del = dis * batEff;
+            batSOC -= dis; mo.bat_to_load += del; hBatToLoad[h] += del;
+            const rem = loadKWh - del;
+            if (rem > 1e-6) { mo.grid_to_load += rem; hGrid[h] += rem; }
+          } else {
+            mo.grid_to_load += loadKWh; hGrid[h] += loadKWh;
+          }
+        }
+      }
+    }
+
+    // Daily averages for hourly chart
+    const days = DAYS_PER_MONTH[month];
+    mo.hourly = Array.from({length:24}, (_,h) => ({
+      pv:       hPv[h]       / days,
+      pvToLoad: hPvToLoad[h] / days,
+      batToLoad:hBatToLoad[h]/ days,
+      grid:     hGrid[h]     / days,
+      load:     hourlyLoadW[h] / 1000
+    }));
+
+    monthly[month] = mo;
+  }
+
+  const totals = {pv_produced:0,pv_to_load:0,bat_to_load:0,pv_to_battery:0,pv_to_grid:0,pv_curtailed:0,grid_to_load:0};
+  for (let m = 1; m <= 12; m++) for (const k of Object.keys(totals)) totals[k] += monthly[m][k];
+
+  // Year-average hourly profile (weighted by days)
+  totals.yearHourly = Array.from({length:24}, (_,h) => {
+    let pv=0, pvToLoad=0, batToLoad=0, grid=0;
+    for (let m=1; m<=12; m++) {
+      const d = DAYS_PER_MONTH[m];
+      pv       += monthly[m].hourly[h].pv       * d;
+      pvToLoad += monthly[m].hourly[h].pvToLoad * d;
+      batToLoad+= monthly[m].hourly[h].batToLoad* d;
+      grid     += monthly[m].hourly[h].grid     * d;
+    }
+    return {pv:pv/365, pvToLoad:pvToLoad/365, batToLoad:batToLoad/365, grid:grid/365,
+            load: computeHourlyLoadW(p)[h] / 1000};
+  });
+
+  totals.monthly = monthly;
+  totals.hourlyLoadW = computeHourlyLoadW(p);
+  return totals;
+}
+
+// Fast version for optimizer (skips hourly tracking)
+function simulateYearTotals(p) {
+  const acMaxW   = p.nWR * p.acLimitPerWR;
+  const totalKWp = p.nModules * p.wpPerModule / 1000;
+  const loc      = LOCATIONS[p.location];
+  const sunTimes = SUNRISE_SUNSET[p.location];
+  const batEff   = p.batEff / 100;
+  const hourlyLoadW = computeHourlyLoadW(p);
+
+  const snowPerMonth = {};
+  for (let m = 1; m <= 12; m++) snowPerMonth[m] = Math.round((SNOW_DIST[m] || 0) * p.snowDays);
+
+  let pvToLoad=0, batToLoad=0, pvToGrid=0;
+  let batSOC = 0;
+
+  for (let month = 1; month <= 12; month++) {
+    const [sunrise, sunset] = sunTimes[month];
+    const {w, tw} = buildWeights(sunrise, sunset);
+    const dailyProdKWh = loc.irradiance[month-1] * totalKWp * (1 - p.derating / 100);
+    const snowD = snowPerMonth[month] || 0;
+
+    for (let day = 0; day < DAYS_PER_MONTH[month]; day++) {
+      const isSnow = day < snowD;
+      for (let h = 0; h < 24; h++) {
+        const loadW   = hourlyLoadW[h];
+        const loadKWh = loadW / 1000;
+        const pvW = (!isSnow && tw > 0 && w[h] > 0) ? (w[h] / tw) * dailyProdKWh * 1000 : 0;
+
+        if (pvW > 0) {
+          const pvForLoadW   = Math.min(pvW, loadW, acMaxW);
+          const pvForLoadKWh = pvForLoadW / 1000;
+          pvToLoad += pvForLoadKWh;
+          let remLoad = loadKWh - pvForLoadKWh;
+          let remPvW  = pvW - pvForLoadW;
+
+          // Bug 3: AC-Limit für Tages-Batterieentladung
+          if (remLoad > 1e-9 && batSOC > 1e-9) {
+            const acRemainingKWh = Math.max(0, acMaxW / 1000 - pvForLoadKWh);
+            const dis = Math.min(remLoad / batEff, batSOC, acRemainingKWh / batEff);
+            batSOC -= dis; batToLoad += dis * batEff; remLoad -= dis * batEff;
+          }
+          if (remPvW > 1e-6 && batSOC < p.batKWh) {
+            const stored = Math.min(remPvW / 1000 * batEff, p.batKWh - batSOC);
+            batSOC += stored; remPvW -= (stored / batEff) * 1000;
+          }
+          if (remPvW > 1e-6) {
+            const toGrid = Math.min(remPvW, Math.max(0, acMaxW - pvForLoadW));
+            pvToGrid += toGrid / 1000; remPvW -= toGrid;
+          }
+        } else {
+          // Bug 2: AC-Limit bei Nacht-Entladung
+          if (batSOC > 1e-9) {
+            const dis = Math.min(loadKWh / batEff, batSOC, acMaxW / 1000 / batEff);
+            batSOC -= dis; batToLoad += dis * batEff;
+          }
+        }
+      }
+    }
+  }
+  return {pv_to_load: pvToLoad, bat_to_load: batToLoad, pv_to_grid: pvToGrid};
+}
+
+function calcFinance(r, p) {
+  const covered       = r.pv_to_load + r.bat_to_load;
+  const savings       = covered * p.electricityPrice / 100;
+  const feedRevenue   = r.pv_to_grid * p.feedInRate / 100;
+  const annualRevenue = savings + feedRevenue;
+  // Bug 1: Batteriekosten — WR enthält 2.11 kWh Basis, Extra-kWh kosten extra
+  const baseBatKWh   = p.nWR * 2.11;
+  const extraBatKWh  = Math.max(0, p.batKWh - baseBatKWh);
+  const investment   = p.nModules * p.moduleCost + p.nWR * p.wrCost + p.otherCost + extraBatKWh * p.batteryCostPerKwh;
+  const amort        = annualRevenue > 0 ? investment / annualRevenue : 9999;
+  const profit10     = annualRevenue * 10 - investment;
+  return {covered, savings, feedRevenue, annualRevenue, investment, amort, profit10};
+}
+
+// ===== CHARTS =====
+let monthlyChart, dailyChart, amortChart, pieChart;
+
+// Background-Band-Plugin for daily chart
+const dailyBgPlugin = {
+  id: 'dailyBg',
+  beforeDraw(chart) {
+    const {ctx, chartArea} = chart;
+    if (!chartArea) return;
+    const bw = chartArea.width / 24;
+    ctx.save();
+    for (let h = 0; h < 24; h++) {
+      const x = chartArea.left + h * bw;
+      ctx.fillStyle = (h < 6 || h >= 22)  ? 'rgba(148,163,184,0.18)' :
+                       (h >= 6 && h < 14)  ? 'rgba(253,224,71,0.14)'  :
+                                              'rgba(249,115,22,0.11)';
+      ctx.fillRect(x, chartArea.top, bw, chartArea.height);
+    }
+    ctx.restore();
+  }
+};
+
+function initCharts() {
+  // ---- 1. Monatsbalken ----
+  monthlyChart = new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+      labels: MONTH_NAMES,
+      datasets: [
+        {label:'PV → Last',       type:'bar',  backgroundColor:'#22c55e',               data:new Array(12).fill(0), stack:'cons', order:2},
+        {label:'Batterie → Last', type:'bar',  backgroundColor:'#3b82f6',               data:new Array(12).fill(0), stack:'cons', order:2},
+        {label:'Netzbezug',       type:'bar',  backgroundColor:'#ef4444',               data:new Array(12).fill(0), stack:'cons', order:2},
+        {label:'Einspeisung',     type:'bar',  backgroundColor:'rgba(168,85,247,0.55)', data:new Array(12).fill(0), stack:'prod', order:2},
+        {label:'Kappung',         type:'bar',  backgroundColor:'rgba(156,163,175,0.55)',data:new Array(12).fill(0), stack:'prod', order:2},
+        {label:'PV-Produktion',   type:'line', borderColor:'#f97316', borderWidth:2.5,
+          pointRadius:3, pointBackgroundColor:'#f97316',
+          data:new Array(12).fill(0), tension:0.35, order:1, fill:false}
+      ]
+    },
+    options: {
+      responsive:true, interaction:{mode:'index'},
+      scales: {
+        y:{stacked:false, beginAtZero:true, title:{display:true,text:'kWh'}, grid:{color:'rgba(0,0,0,0.05)'}},
+        x:{grid:{display:false}}
+      },
+      plugins: {
+        legend:{position:'bottom',labels:{boxWidth:11,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)} kWh`}}
+      }
+    }
+  });
+
+  // ---- 1b. Tagesdiagramm ----
+  dailyChart = new Chart(document.getElementById('dailyChart'), {
+    type: 'bar',
+    plugins: [dailyBgPlugin],
+    data: {
+      labels: Array.from({length:24}, (_,i) => i+'h'),
+      datasets: [
+        {label:'PV → Last',       type:'bar',  backgroundColor:'#22c55e',               data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'Batterie → Last', type:'bar',  backgroundColor:'#3b82f6',               data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'Netzbezug',       type:'bar',  backgroundColor:'#ef4444',               data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'PV-Produktion',   type:'line', borderColor:'#f97316', borderWidth:2,
+          pointRadius:0, data:new Array(24).fill(0), tension:0.35, order:1, fill:false},
+        {label:'Verbrauch',       type:'line', borderColor:'#1e293b', borderWidth:1.5,
+          borderDash:[5,3], pointRadius:0, data:new Array(24).fill(0), tension:0.2, order:1, fill:false}
+      ]
+    },
+    options: {
+      responsive:true, interaction:{mode:'index'},
+      scales: {
+        y:{beginAtZero:true, title:{display:true,text:'kWh'}, grid:{color:'rgba(0,0,0,0.05)'}},
+        x:{grid:{display:false}, ticks:{font:{size:10}}}
+      },
+      plugins: {
+        legend:{position:'bottom',labels:{boxWidth:11,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)} kWh`}}
+      }
+    }
+  });
+
+  // ---- 4. Amortisation ----
+  amortChart = new Chart(document.getElementById('amortChart'), {
+    type:'line',
+    data:{
+      labels: Array.from({length:16},(_,i)=>i+'J'),
+      datasets:[
+        {
+          label:'Kum. Netto-Ertrag', data:new Array(16).fill(0),
+          borderColor:'#3b82f6', borderWidth:2,
+          pointRadius:(ctx)=>{ const d=ctx.chart.data.datasets[0].data,i=ctx.dataIndex; return(i>0&&d[i]>=0&&d[i-1]<0)?8:3; },
+          pointBackgroundColor:(ctx)=>{ const d=ctx.chart.data.datasets[0].data,i=ctx.dataIndex; return(i>0&&d[i]>=0&&d[i-1]<0)?'#f97316':'#3b82f6'; },
+          fill:{target:'origin',above:'rgba(34,197,94,0.12)',below:'rgba(239,68,68,0.12)'}, tension:0.2
+        },
+        {label:'Break-Even', data:new Array(16).fill(0), borderColor:'rgba(100,116,139,0.5)', borderDash:[6,3], borderWidth:1.5, pointRadius:0, fill:false}
+      ]
+    },
+    options:{
+      responsive:true,
+      scales:{y:{title:{display:true,text:'€'},grid:{color:'rgba(0,0,0,0.05)'}},x:{title:{display:true,text:'Jahre'},grid:{display:false}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?`${ctx.parsed.y.toFixed(0)} €`:null}}}
+    }
+  });
+
+  // ---- 5. Energiefluss Pie ----
+  pieChart = new Chart(document.getElementById('pieChart'), {
+    type:'doughnut',
+    data:{
+      labels:['PV direkt','Batterie geladen','Einspeisung','Kappung'],
+      datasets:[{data:[1,0,0,0],backgroundColor:['#22c55e','#3b82f6','#a855f7','#9ca3af'],borderWidth:2,borderColor:'#fff'}]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'bottom',labels:{boxWidth:11,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>{ const tot=ctx.dataset.data.reduce((a,b)=>a+b,0); const pct=tot>0?(ctx.parsed/tot*100).toFixed(1):0; return `${ctx.label}: ${ctx.parsed.toFixed(0)} kWh (${pct}%)`; }}}
+      }
+    }
+  });
+}
+
+// ===== PARAMS =====
+function getParams() {
+  const n = id => +document.getElementById(id).value || 0;
+  const nMod = Math.max(1, Math.round(n('nModules')));
+  return {
+    nModules:    nMod,
+    wpPerModule: n('wpPerModule') || 500,
+    nWR:         Math.max(1, Math.round(n('nWR'))),
+    acLimitPerWR:n('acLimit') || 800,
+    batKWh:      n('batKWh'),
+    batEff:      n('batEff') || 92,
+    location:    document.getElementById('location').value,
+    derating:    n('derating'),
+    snowDays:    Math.round(n('snowDays')),
+    yearlyConsumption: n('yearlyConsumption') || 4000,
+    baseFraction:      n('baseFraction'),
+    morningFraction:   n('morningFraction'),
+    afternoonFraction: n('afternoonFraction'),
+    morningActiveH:   Math.max(1, Math.min(8, Math.round(n('morningActiveH'))  || 4)),
+    afternoonActiveH: Math.max(1, Math.min(8, Math.round(n('afternoonActiveH'))|| 4)),
+    nightActiveH:     Math.max(1, Math.min(8, Math.round(n('nightActiveH'))    || 4)),
+    electricityPrice: n('electricityPrice') || 35,
+    feedInRate:       n('feedInRate'),
+    moduleCost:       n('moduleCost') || 70,
+    wrCost:           n('wrCost')     || 669,
+    batteryCostPerKwh:n('batteryCostPerKwh') || 200,
+    otherCost:        n('otherCost')
+  };
+}
+
+function fmt(v, d=0) { if (!isFinite(v)) return '–'; return v.toFixed(d).replace('.',','); }
+function fmtE(v, d=2) { return fmt(v,d)+' €'; }
+
+// ===== UPDATE RESULTS =====
+let lastResult = null;
+
+function updateResults() {
+  const p = getParams();
+  const r = simulateYear(p);
+  const f = calcFinance(r, p);
+  lastResult = {r, p};
+
+  const covered = r.pv_to_load + r.bat_to_load;
+  const deckung = p.yearlyConsumption > 0 ? covered / p.yearlyConsumption * 100 : 0;
+  const evPct   = r.pv_produced > 0 ? r.pv_to_load / r.pv_produced * 100 : 0;
+
+  document.getElementById('kpiPvTotal').textContent      = fmt(r.pv_produced);
+  document.getElementById('kpiEigenverbrauch').textContent = fmt(covered);
+  document.getElementById('kpiEVPct').textContent        = r.pv_produced > 0 ? `(${fmt(evPct)}% von PV)` : '';
+  document.getElementById('kpiDeckung').textContent      = fmt(deckung, 1);
+  document.getElementById('kpiNetz').textContent         = fmt(r.grid_to_load);
+  document.getElementById('kpiEinspeisung').textContent  = fmt(r.pv_to_grid);
+  document.getElementById('kpiKappung').textContent      = fmt(r.pv_curtailed);
+
+  document.getElementById('finSavings').textContent    = fmtE(f.savings);
+  document.getElementById('finFeed').textContent       = fmtE(f.feedRevenue);
+  document.getElementById('finTotal').textContent      = fmtE(f.annualRevenue);
+  document.getElementById('finInvestment').textContent = fmtE(f.investment, 0);
+  document.getElementById('finAmort').textContent      = f.amort < 99 ? fmt(f.amort,1)+' Jahre' : '> 99 Jahre';
+  const p10el = document.getElementById('finProfit10');
+  p10el.textContent = (f.profit10>=0?'+':'')+fmtE(f.profit10,0);
+  p10el.style.color = f.profit10 >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Monthly chart
+  const ms = Array.from({length:12},(_,i)=>i+1);
+  const d = monthlyChart.data.datasets;
+  d[0].data = ms.map(m => +r.monthly[m].pv_to_load.toFixed(1));
+  d[1].data = ms.map(m => +r.monthly[m].bat_to_load.toFixed(1));
+  d[2].data = ms.map(m => +r.monthly[m].grid_to_load.toFixed(1));
+  d[3].data = ms.map(m => +r.monthly[m].pv_to_grid.toFixed(1));
+  d[4].data = ms.map(m => +r.monthly[m].pv_curtailed.toFixed(1));
+  d[5].data = ms.map(m => +r.monthly[m].pv_produced.toFixed(1));
+  monthlyChart.update('none');
+
+  // Daily chart
+  updateDailyChart(r);
+
+  // Amort
+  amortChart.data.datasets[0].data = Array.from({length:16},(_,i) => +(f.annualRevenue*i - f.investment).toFixed(0));
+  amortChart.update('none');
+
+  // Pie
+  pieChart.data.datasets[0].data = [+r.pv_to_load.toFixed(1), +r.pv_to_battery.toFixed(1), +r.pv_to_grid.toFixed(1), +r.pv_curtailed.toFixed(1)];
+  pieChart.update('none');
+}
+
+function updateDailyChart(r) {
+  const monthVal = +document.getElementById('dailyMonthSelect').value;
+  const hData = monthVal === 0 ? r.yearHourly : r.monthly[monthVal].hourly;
+  const dd = dailyChart.data.datasets;
+  dd[0].data = hData.map(h => +h.pvToLoad.toFixed(4));
+  dd[1].data = hData.map(h => +h.batToLoad.toFixed(4));
+  dd[2].data = hData.map(h => +h.grid.toFixed(4));
+  dd[3].data = hData.map(h => +h.pv.toFixed(4));
+  dd[4].data = hData.map(h => +h.load.toFixed(4));
+  dailyChart.update('none');
+}
+
+// ===== DISPLAYS =====
+function updateDisplays() {
+  const g = id => document.getElementById(id).value;
+  document.getElementById('baseFractionVal').textContent    = g('baseFraction')+'%';
+  document.getElementById('morningFractionVal').textContent = g('morningFraction')+'%';
+  document.getElementById('afternoonFractionVal').textContent=g('afternoonFraction')+'%';
+  const night = Math.max(0, 100 - +g('morningFraction') - +g('afternoonFraction'));
+  document.getElementById('nightFractionDisplay').textContent = night+'%';
+  const kWp = +g('nModules') * (+document.getElementById('wpPerModule').value||0) / 1000;
+  document.getElementById('kwpDisplay').textContent = 'Gesamt: '+kWp.toFixed(1).replace('.',',')+' kWp';
+}
+
+function applySnowDefault() {
+  const loc = LOCATIONS[document.getElementById('location').value];
+  if (!loc) return;
+  const def = defaultSnowDays(loc.elevation);
+  document.getElementById('snowDays').value = def;
+  const hint = document.getElementById('snowHint');
+  if (loc.elevation > 500) {
+    hint.textContent = `⛄ ${loc.elevation} m Höhenlage: ${def} Schneetage vorbelegt (überschreibbar)`;
+    hint.classList.add('visible');
+  } else {
+    hint.classList.remove('visible');
+  }
+}
+
+// ===== OPTIMIZATION =====
+function runOptimization() {
+  const btn = document.getElementById('optimizeBtn');
+  btn.textContent = '⏳ Berechne…'; btn.disabled = true;
+  setTimeout(() => {
+    const p = getParams();
+    const results = [];
+    // nWR ergibt sich aus Modulzahl: max 4 Module pro WR
+    for (let nMod = 1; nMod <= 16; nMod++) {
+      const nWR = Math.ceil(nMod / 4);
+      for (const bat of [0, 2, 4, 6, 8, 10]) {
+        const pp = {...p, nModules:nMod, nWR, batKWh:bat};
+        const r  = simulateYearTotals(pp);
+        const f  = calcFinance(r, pp);
+        results.push({nMod, nWR, bat, ...f});
+      }
+    }
+    results.sort((a,b) => Math.abs(a.amort-b.amort) > 0.01 ? a.amort-b.amort : b.profit10-a.profit10);
+    const top3 = results.slice(0,3);
+    const tbody = document.getElementById('optTableBody');
+    tbody.innerHTML = '';
+    ['🥇','🥈','🥉'].forEach((m,i) => {
+      const r = top3[i]; if (!r) return;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${m} Rang ${i+1}</td>
+        <td>${r.nMod} Stk.</td>
+        <td>${r.bat} kWh</td>
+        <td style="color:var(--muted)">${r.nWR}</td>
+        <td>${fmt(r.investment,0)} €</td>
+        <td>${fmt(r.annualRevenue,2)} €</td>
+        <td>${r.amort<99?fmt(r.amort,1)+' J':'> 99 J'}</td>
+        <td style="color:${r.profit10>=0?'var(--green)':'var(--red)'}">${r.profit10>=0?'+':''}${fmt(r.profit10,0)} €</td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('optResults').classList.add('visible');
+    btn.textContent = '🔍 Optimale Konfiguration finden'; btn.disabled = false;
+  }, 50);
+}
+
+// ===== VALIDATION =====
+function runValidation() {
+  const vp = {
+    nModules:8, wpPerModule:500, nWR:2, acLimitPerWR:800,
+    batKWh:2, batEff:92, location:'Schmiedefeld (TH, 720m)',
+    derating:50, snowDays:34,
+    yearlyConsumption:2628, baseFraction:100,
+    morningFraction:0, afternoonFraction:0,
+    morningActiveH:4, afternoonActiveH:4, nightActiveH:4,
+    electricityPrice:35, feedInRate:8, moduleCost:70, wrCost:669,
+    batteryCostPerKwh:200, otherCost:240
+  };
+  const r = simulateYear(vp);
+  const covered = r.pv_to_load + r.bat_to_load;
+  console.log('[VALIDATION] Schmiedefeld 8M 2kWh 50%Derating 34Schneetage (100% Grundlast=300W):');
+  console.log(`  PV-Produktion:  ${r.pv_produced.toFixed(0)} kWh/a`);
+  console.log(`  Eigenverbrauch: ${covered.toFixed(0)} kWh/a`);
+  console.log(`  Deckungsgrad:   ${(covered/2628*100).toFixed(1)}%  (Python-Ref mit anderen Einstrahlungsdaten + 3,8kWh Bat: ~62%)`);
+  console.log(`  PV→Last: ${r.pv_to_load.toFixed(0)}, Bat→Last: ${r.bat_to_load.toFixed(0)}, Netz: ${r.grid_to_load.toFixed(0)}`);
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  // Populate location dropdown
+  const sel = document.getElementById('location');
+  Object.keys(LOCATIONS).forEach(name => {
+    const o = document.createElement('option');
+    o.value = name; o.textContent = name;
+    if (name === 'Erfurt (TH)') o.selected = true;
+    sel.appendChild(o);
+  });
+
+  initCharts();
+  updateDisplays();
+  applySnowDefault();    // auto-set snow days for Erfurt (→ 5)
+  updateResults();
+  runValidation();
+
+  // Infobox click-to-toggle
+  document.querySelectorAll('.info-btn').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); btn.classList.toggle('open'); });
+  });
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.info-btn.open').forEach(b => b.classList.remove('open'));
+  });
+
+  // Range sliders – live
+  ['baseFraction'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => { updateDisplays(); updateResults(); });
+  });
+
+  // Fraction sliders with coupling
+  document.getElementById('morningFraction').addEventListener('input', function() {
+    const m = +this.value, a = +document.getElementById('afternoonFraction').value;
+    if (m + a > 100) document.getElementById('afternoonFraction').value = 100 - m;
+    updateDisplays(); updateResults();
+  });
+  document.getElementById('afternoonFraction').addEventListener('input', function() {
+    const a = +this.value, m = +document.getElementById('morningFraction').value;
+    if (m + a > 100) document.getElementById('morningFraction').value = 100 - a;
+    updateDisplays(); updateResults();
+  });
+
+  // Number inputs
+  document.querySelectorAll('input[type=number]').forEach(el => {
+    el.addEventListener('change', () => { updateDisplays(); updateResults(); });
+  });
+
+  // Location change → auto-set snow days
+  sel.addEventListener('change', () => {
+    applySnowDefault();
+    updateDisplays();
+    updateResults();
+  });
+
+  // Snow days manual change still triggers recalc
+  document.getElementById('snowDays').addEventListener('change', updateResults);
+
+  // Daily chart month selector
+  document.getElementById('dailyMonthSelect').addEventListener('change', () => {
+    if (lastResult) updateDailyChart(lastResult.r);
+  });
+
+  document.getElementById('optimizeBtn').addEventListener('click', runOptimization);
+});
+</script>
+</body>
+</html>
