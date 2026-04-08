@@ -93,6 +93,7 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem 50p
   #inputs { position:static; max-height:none; }
   .kpi-grid { grid-template-columns:repeat(2,1fr); }
   .two-col { grid-template-columns:1fr; }
+  #methodology { padding:0 16px; }
 }
 </style>
 </head>
@@ -355,6 +356,15 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem 50p
 
 </section>
 </main>
+
+<section id="methodology" style="max-width:1400px;margin:1rem auto;padding:0 50px;">
+  <details open>
+    <summary style="cursor:pointer;font-weight:700;font-size:1rem;padding:0.75rem;background:var(--panel);border:1px solid var(--border);border-radius:8px;list-style:none;display:flex;align-items:center;gap:0.5rem;">
+      📐 Berechnungsmethodik und Quellennachweis
+    </summary>
+    <div id="methodContent" style="background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:1.5rem;font-size:0.85rem;line-height:1.7;"></div>
+  </details>
+</section>
 
 <script>
 // ===== LOCATION DATA =====
@@ -846,6 +856,145 @@ function updateResults() {
   // Daily chart
   updateDailyChart(r);
 
+  // Methodology
+  updateMethodology(r, p, f);
+
+}
+
+function updateMethodology(r, p, f) {
+  const el = document.getElementById('methodContent');
+  if (!el) return;
+
+  const ac  = v => `<strong style="color:var(--accent)">${v}</strong>`;
+  const f1  = v => isFinite(v) ? v.toFixed(1).replace('.',',') : '–';
+  const f0  = v => isFinite(v) ? Math.round(v).toLocaleString('de-DE') : '–';
+  const f2  = v => isFinite(v) ? v.toFixed(2).replace('.',',') : '–';
+
+  const kWp       = p.nModules * p.wpPerModule / 1000;
+  const acMax     = p.nWR * p.acLimitPerWR;
+  const baseLoadW = p.yearlyConsumption * p.baseFraction / 100 / 8760 * 1000;
+  const restKWh   = p.yearlyConsumption * (1 - p.baseFraction / 100);
+  const nightFrac = Math.max(0, 100 - p.morningFraction - p.afternoonFraction);
+  const mActH = Math.max(1, Math.min(8, p.morningActiveH || 4));
+  const aActH = Math.max(1, Math.min(8, p.afternoonActiveH || 4));
+  const nActH = Math.max(1, Math.min(8, p.nightActiveH || 4));
+  const mW = p.morningFraction   > 0 ? (restKWh * p.morningFraction   / 100) / (365 * mActH) * 1000 : 0;
+  const aW = p.afternoonFraction > 0 ? (restKWh * p.afternoonFraction / 100) / (365 * aActH) * 1000 : 0;
+  const nW = nightFrac           > 0 ? (restKWh * nightFrac           / 100) / (365 * nActH) * 1000 : 0;
+
+  const loc     = LOCATIONS[p.location];
+  const sunJ    = SUNRISE_SUNSET[p.location][7];
+  const defSnow = defaultSnowDays(loc.elevation);
+  const snowDist = {1:0.30,2:0.25,3:0.10,11:0.10,12:0.25};
+  const snowM   = m => Math.round((snowDist[m]||0) * p.snowDays);
+
+  const baseBatKWh   = p.nWR * 2.11;
+  const extraBatKWh  = Math.max(0, p.batKWh - baseBatKWh);
+  const modCostTotal = p.nModules * p.moduleCost;
+  const wrCostTotal  = p.nWR * p.wrCost;
+  const extraBatCost = extraBatKWh * p.batteryCostPerKwh;
+
+  const demandSum = r.pv_to_load + r.bat_to_load + r.grid_to_load;
+  const supplySum = r.pv_to_load + r.pv_to_battery + r.pv_to_grid + r.pv_curtailed;
+
+  const cs = 'style="background:var(--bg);padding:0.7rem 1rem;border-radius:6px;font-family:monospace;font-size:0.82rem;overflow-x:auto;margin:0.4rem 0;white-space:pre-wrap;"';
+  const hs = 'style="font-size:0.9rem;font-weight:700;color:var(--text);margin:1.2rem 0 0.4rem;border-bottom:1px solid var(--border);padding-bottom:0.25rem;"';
+  const ts = 'style="width:100%;border-collapse:collapse;font-size:0.82rem;margin:0.5rem 0;"';
+  const thS = 'style="padding:0.35rem 0.65rem;background:var(--bg);border:1px solid var(--border);text-align:left;font-weight:700;"';
+  const tdS = 'style="padding:0.35rem 0.65rem;border:1px solid var(--border);"';
+  const tdA = `style="padding:0.35rem 0.65rem;border:1px solid var(--border);color:var(--accent);font-weight:700;"`;
+
+  el.innerHTML = `
+<h4 ${hs}>1. PV-Produktionsmodell</h4>
+<p><strong>Datenquelle:</strong> PVGIS-SARAH2 (European Commission Joint Research Centre) — monatliche mittlere Globalstrahlung auf horizontaler Fläche.</p>
+<div ${cs}>PV_month(m) = G_h(m) × d(m) × P_peak × (1 − f_derating) × (1 − f_snow(m))</div>
+<table ${ts}>
+  <tr><th ${thS}>Parameter</th><th ${thS}>Wert</th></tr>
+  <tr><td ${tdS}>P_peak = ${p.nModules} Module × ${p.wpPerModule} Wp</td><td ${tdA}>${ac(f1(kWp)+' kWp')}</td></tr>
+  <tr><td ${tdS}>f_derating</td><td ${tdA}>${ac(p.derating+' %')}</td></tr>
+  <tr><td ${tdS}>G_h(Jul) — ${p.location}</td><td ${tdA}>${ac(loc.irradiance[6]+' kWh/kWp/Tag')}</td></tr>
+  <tr><td ${tdS}>Sonnenaufgang/−untergang Jul</td><td ${tdA}>${ac(f1(sunJ[0])+' / '+f1(sunJ[1])+' Uhr (CET)')}</td></tr>
+</table>
+<p><strong>Tagesgang:</strong> <code>w(h) = sin((h − t_rise)/(t_set − t_rise) × π)</code>, normiert auf Tagesproduktion.</p>
+<p><strong>Schneetage:</strong> ${ac(p.snowDays)} /Jahr (${p.location}: ${loc.elevation} m ü. NHN, Default ${defSnow} Tage)</p>
+<table ${ts}>
+  <tr><th ${thS}>Monat</th><th ${thS}>Jan</th><th ${thS}>Feb</th><th ${thS}>Mär</th><th ${thS}>Nov</th><th ${thS}>Dez</th></tr>
+  <tr><td ${tdS}>Anteil</td><td ${tdS}>30%</td><td ${tdS}>25%</td><td ${tdS}>10%</td><td ${tdS}>10%</td><td ${tdS}>25%</td></tr>
+  <tr><td ${tdS}>Tage</td><td ${tdA}>${ac(snowM(1))}</td><td ${tdA}>${ac(snowM(2))}</td><td ${tdA}>${ac(snowM(3))}</td><td ${tdA}>${ac(snowM(11))}</td><td ${tdA}>${ac(snowM(12))}</td></tr>
+</table>
+
+<h4 ${hs}>2. Verbrauchsmodell</h4>
+<div ${cs}>P_base = E_year × f_base / 8760 = ${p.yearlyConsumption} × ${p.baseFraction}% / 8760 = ${ac(f1(baseLoadW)+' W')} Dauerleistung</div>
+<div ${cs}>E_rest = E_year × (1 − f_base) = ${ac(f0(restKWh)+' kWh/a')} variabler Jahresverbrauch</div>
+<table ${ts}>
+  <tr><th ${thS}>Zeitfenster</th><th ${thS}>Stunden</th><th ${thS}>Anteil</th><th ${thS}>Aktive Std.</th><th ${thS}>Variable Last</th></tr>
+  <tr><td ${tdS}>Vormittag</td><td ${tdS}>06–14</td><td ${tdA}>${ac(p.morningFraction+' %')}</td><td ${tdA}>${ac(mActH+' h')}</td><td ${tdA}>${ac(f1(mW)+' W')}</td></tr>
+  <tr><td ${tdS}>Nachmittag</td><td ${tdS}>14–22</td><td ${tdA}>${ac(p.afternoonFraction+' %')}</td><td ${tdA}>${ac(aActH+' h')}</td><td ${tdA}>${ac(f1(aW)+' W')}</td></tr>
+  <tr><td ${tdS}>Nacht</td><td ${tdS}>22–06</td><td ${tdA}>${ac(nightFrac+' %')}</td><td ${tdA}>${ac(nActH+' h')}</td><td ${tdA}>${ac(f1(nW)+' W')}</td></tr>
+</table>
+<p>Kontrolle: P_base × 8760h + Σ(Fenster-Energie) = ${ac(f0(p.yearlyConsumption)+' kWh')} ✓</p>
+
+<h4 ${hs}>3. Energiefluss-Simulation</h4>
+<p><strong>Zeitauflösung:</strong> 8760 Stunden/Jahr. Parameter: ${ac('AC_max = '+acMax+' W')} | ${ac('η_bat = '+p.batEff+'%')} | ${ac('C_bat = '+p.batKWh+' kWh')}</p>
+<div ${cs}>Tagsüber (PV > 0):
+  1. PV → Last:        min(PV_h, Last_h, AC_max)
+  2. Bat → Last:       min(Restlast/η, SOC, AC_rest/η)
+  3. Netz → Last:      verbleibende Restlast
+  4. PV → Batterie:    min(Überschuss × η, C_bat − SOC)
+  5. PV → Einspeisung: min(Überschuss, AC_max − PV→Last)
+  6. Kappung:          verbleibender Überschuss
+
+Nachts (PV = 0):
+  1. Bat → Last:       min(Last/η, SOC, AC_max/η)
+  2. Netz → Last:      verbleibende Last</div>
+<p><strong>Bilanzgleichungen (Jahressummen):</strong></p>
+<table ${ts}>
+  <tr><th ${thS}>Gleichung</th><th ${thS}>Berechnet</th><th ${thS}>Soll</th><th ${thS}>Δ</th></tr>
+  <tr><td ${tdS}>PV→Last + Bat→Last + Netz→Last</td><td ${tdA}>${ac(f1(demandSum)+' kWh')}</td><td ${tdS}>${f1(p.yearlyConsumption)} kWh</td><td ${tdS}>${f2(Math.abs(demandSum-p.yearlyConsumption))} kWh</td></tr>
+  <tr><td ${tdS}>PV→Last + PV→Bat + PV→Einsp. + Kappung</td><td ${tdA}>${ac(f1(supplySum)+' kWh')}</td><td ${tdS}>${f1(r.pv_produced)} kWh</td><td ${tdS}>${f2(Math.abs(supplySum-r.pv_produced))} kWh</td></tr>
+</table>
+
+<h4 ${hs}>4. Batteriemodell</h4>
+<table ${ts}>
+  <tr><th ${thS}>Parameter</th><th ${thS}>Wert</th></tr>
+  <tr><td ${tdS}>Technologie</td><td ${tdS}>LiFePO₄ (Lithium-Eisenphosphat)</td></tr>
+  <tr><td ${tdS}>Nutzbare Kapazität (nach DoD)</td><td ${tdA}>${ac(p.batKWh+' kWh')}</td></tr>
+  <tr><td ${tdS}>Wirkungsgrad Round-Trip</td><td ${tdA}>${ac(p.batEff+' %')}</td></tr>
+  <tr><td ${tdS}>SOC-Tracking</td><td ${tdS}>Stündlich, 0 ≤ SOC ≤ C_bat, Startwert 0 kWh</td></tr>
+</table>
+<div ${cs}>Laden:    ΔE_stored = min(PV_überschuss × η, C_bat − SOC);  SOC += ΔE_stored
+Entladen: ΔE_entnahme = min(Last/η, SOC, AC_rest/η);  E_geliefert = ΔE_entnahme × η;  SOC -= ΔE_entnahme</div>
+
+<h4 ${hs}>5. Finanzkalkulation</h4>
+<div ${cs}>I = n_mod×K_mod + n_WR×K_WR + max(0, C_bat − n_WR×2,11)×K_bat + K_sonst
+  = ${p.nModules}×${p.moduleCost}€ + ${p.nWR}×${p.wrCost}€ + max(0,${p.batKWh}−${p.nWR}×2,11)×${p.batteryCostPerKwh}€ + ${p.otherCost}€
+  = ${f0(modCostTotal)}€ + ${f0(wrCostTotal)}€ + ${f0(extraBatCost)}€ + ${f0(p.otherCost)}€
+  = ${ac(f0(f.investment)+' €')}</div>
+<p style="font-size:0.78rem;color:var(--muted);">Jeder Solakon ONE WR enthält 2,11 kWh LiFePO₄-Basis-Speicher; nur darüber hinausgehende Kapazität kostet extra.</p>
+<table ${ts}>
+  <tr><th ${thS}>Position</th><th ${thS}>Berechnung</th><th ${thS}>Ergebnis</th></tr>
+  <tr><td ${tdS}>Ersparnis</td><td ${tdS}>(${f1(r.pv_to_load+r.bat_to_load)} kWh) × ${p.electricityPrice} ct/kWh</td><td ${tdA}>${ac(f2(f.savings)+' €/a')}</td></tr>
+  <tr><td ${tdS}>Einspeiseerlös</td><td ${tdS}>${f1(r.pv_to_grid)} kWh × ${p.feedInRate} ct/kWh</td><td ${tdA}>${ac(f2(f.feedRevenue)+' €/a')}</td></tr>
+  <tr><td ${tdS}><strong>Gesamtertrag/Jahr</strong></td><td ${tdS}></td><td ${tdA}>${ac(f2(f.annualRevenue)+' €/a')}</td></tr>
+  <tr><td ${tdS}>Amortisationszeit</td><td ${tdS}>${f0(f.investment)} € / ${f2(f.annualRevenue)} €/a</td><td ${tdA}>${ac((f.amort<99?f1(f.amort)+' Jahre':'> 99 J'))}</td></tr>
+  <tr><td ${tdS}><strong>10-Jahres-Gewinn</strong></td><td ${tdS}>${f2(f.annualRevenue)} €/a × 10 − ${f0(f.investment)} €</td><td ${tdA} style="color:${f.profit10>=0?'var(--green)':'var(--red)'};">${ac((f.profit10>=0?'+':'')+f0(f.profit10)+' €')}</td></tr>
+</table>
+<p style="font-size:0.78rem;color:var(--muted);">⚠ Lineare Berechnung ohne Modulalterung, Degradation, Inflation oder Kapitalkosten. Konservative Schätzung.</p>
+
+<h4 ${hs}>6. Optimierungsalgorithmus</h4>
+<div ${cs}>Suchraum:     n_mod ∈ {1…16} × C_bat ∈ {0,2,4,6,8,10} kWh → 96 Konfigurationen
+WR-Anzahl:    n_WR = ⌈n_mod / 4⌉  (max. 4 MPPT-Eingänge pro WR)
+Methode:      Brute-Force, vollständige Enumeration aller 96 Kombinationen
+Zielfunktion: Amortisationszeit (primär), sortierbar nach allen Kennzahlen (IRR, 10J-Gewinn, …)</div>
+
+<h4 ${hs}>7. Quellenverzeichnis</h4>
+<ol style="padding-left:1.2rem;line-height:2;">
+  <li><strong>Einstrahlungsdaten:</strong> PVGIS-SARAH2, European Commission Joint Research Centre — <a href="https://re.jrc.ec.europa.eu/pvg_tools/en/" target="_blank" style="color:var(--accent);">re.jrc.ec.europa.eu</a></li>
+  <li><strong>Sonnenzeiten:</strong> Astronomische Berechnung für den 15. jedes Monats, CET (UTC+1), ohne Sommerzeit</li>
+  <li><strong>Einspeisegrenze:</strong> §12a EEG 2023 i.V.m. §53 GEG — 800 W AC-Obergrenze für Balkonkraftwerke seit April 2024</li>
+  <li><strong>Solakon ONE:</strong> 4 MPPT-Eingänge, 800 W AC-Limit, 2,11 kWh LiFePO₄ integriert</li>
+  <li><strong>Batteriewirkungsgrad:</strong> 92% Round-Trip für LiFePO₄ — typischer Herstellerwert (BYD, CATL)</li>
+</ol>`;
 }
 
 function updateDailyChart(r) {
