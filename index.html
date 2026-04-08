@@ -713,9 +713,9 @@ function initCharts() {
         {label:'Kappung',           type:'bar',  backgroundColor:'rgba(156,163,175,0.55)',data:new Array(12).fill(0), stack:'e', order:2},
         {label:'PV-Produktion',     type:'line', borderColor:'#f97316', borderWidth:2.5,
           pointRadius:3, pointBackgroundColor:'#f97316',
-          data:new Array(12).fill(0), tension:0.35, order:1, fill:false},
+          data:new Array(12).fill(0), tension:0.35, order:1, fill:false, stack:'pv'},
         {label:'Verbrauch',         type:'line', borderColor:'#1e293b', borderWidth:1.5,
-          borderDash:[5,3], pointRadius:0, data:new Array(12).fill(0), tension:0.2, order:1, fill:false}
+          borderDash:[5,3], pointRadius:0, data:new Array(12).fill(0), tension:0.2, order:1, fill:false, stack:'cons'}
       ]
     },
     options: {
@@ -745,9 +745,9 @@ function initCharts() {
         {label:'PV → Einspeisung', type:'bar',  backgroundColor:'rgba(168,85,247,0.55)', data:new Array(24).fill(0), stack:'e', order:2},
         {label:'Kappung',          type:'bar',  backgroundColor:'rgba(156,163,175,0.55)',data:new Array(24).fill(0), stack:'e', order:2},
         {label:'PV-Produktion',    type:'line', borderColor:'#f97316', borderWidth:2,
-          pointRadius:0, data:new Array(24).fill(0), tension:0.35, order:1, fill:false},
+          pointRadius:0, data:new Array(24).fill(0), tension:0.35, order:1, fill:false, stack:'pv'},
         {label:'Verbrauch',        type:'line', borderColor:'#1e293b', borderWidth:1.5,
-          borderDash:[5,3], pointRadius:0, data:new Array(24).fill(0), tension:0.2, order:1, fill:false}
+          borderDash:[5,3], pointRadius:0, data:new Array(24).fill(0), tension:0.2, order:1, fill:false, stack:'cons'}
       ]
     },
     options: {
