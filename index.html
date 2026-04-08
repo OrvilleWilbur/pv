@@ -840,7 +840,7 @@ function updateResults() {
   d[4].data = ms.map(m => +r.monthly[m].pv_to_grid.toFixed(1));
   d[5].data = ms.map(m => +r.monthly[m].pv_curtailed.toFixed(1));
   d[6].data = ms.map(m => +r.monthly[m].pv_produced.toFixed(1));
-  d[7].data = new Array(12).fill(+(p.yearlyConsumption / 12).toFixed(1));
+  d[7].data = DAYS_PER_MONTH.slice(1).map(days => +(p.yearlyConsumption * days / 365).toFixed(1));
   monthlyChart.update();
 
   // Daily chart
