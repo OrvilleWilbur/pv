@@ -286,7 +286,7 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem 50p
     <div class="kpi-card">
       <div class="kv" id="kpiEinspeisung">–</div>
       <div class="ku">kWh/Jahr</div>
-      <div class="kl">PV → Netz</div>
+      <div class="kl">PV → Einspeisung</div>
       <div class="ks" id="kpiEinspeisungEur"></div>
     </div>
     <div class="kpi-card">
@@ -499,8 +499,9 @@ function simulateYear(p) {
     const hPvToLoad = new Float64Array(24);
     const hBatToLoad= new Float64Array(24);
     const hGrid     = new Float64Array(24);
-    const hPvToGrid = new Float64Array(24);
-    const hCurtailed= new Float64Array(24);
+    const hPvToGrid   = new Float64Array(24);
+    const hCurtailed  = new Float64Array(24);
+    const hPvToBattery= new Float64Array(24);
 
     for (let day = 0; day < DAYS_PER_MONTH[month]; day++) {
       const isSnow = day < snowD;
@@ -533,7 +534,7 @@ function simulateYear(p) {
             const stored = Math.min(remPvW / 1000 * batEff, p.batKWh - batSOC);
             batSOC += stored;
             const used = stored / batEff;
-            mo.pv_to_battery += used; remPvW -= used * 1000;
+            mo.pv_to_battery += used; hPvToBattery[h] += used; remPvW -= used * 1000;
           }
           if (remPvW > 1e-6) {
             const acRem  = Math.max(0, acMaxW - pvForLoadW);
@@ -564,9 +565,10 @@ function simulateYear(p) {
       pvToLoad: hPvToLoad[h] / days,
       batToLoad:hBatToLoad[h]/ days,
       grid:     hGrid[h]     / days,
-      pvToGrid: hPvToGrid[h] / days,
-      curtailed:hCurtailed[h]/ days,
-      load:     hourlyLoadW[h] / 1000
+      pvToGrid:   hPvToGrid[h]    / days,
+      curtailed:  hCurtailed[h]   / days,
+      pvToBattery:hPvToBattery[h] / days,
+      load:       hourlyLoadW[h]  / 1000
     }));
 
     monthly[month] = mo;
@@ -577,18 +579,19 @@ function simulateYear(p) {
 
   // Year-average hourly profile (weighted by days)
   totals.yearHourly = Array.from({length:24}, (_,h) => {
-    let pv=0, pvToLoad=0, batToLoad=0, grid=0, pvToGrid=0, curtailed=0;
+    let pv=0, pvToLoad=0, batToLoad=0, grid=0, pvToGrid=0, curtailed=0, pvToBattery=0;
     for (let m=1; m<=12; m++) {
       const d = DAYS_PER_MONTH[m];
-      pv        += monthly[m].hourly[h].pv        * d;
-      pvToLoad  += monthly[m].hourly[h].pvToLoad  * d;
-      batToLoad += monthly[m].hourly[h].batToLoad * d;
-      grid      += monthly[m].hourly[h].grid      * d;
-      pvToGrid  += monthly[m].hourly[h].pvToGrid  * d;
-      curtailed += monthly[m].hourly[h].curtailed * d;
+      pv          += monthly[m].hourly[h].pv          * d;
+      pvToLoad    += monthly[m].hourly[h].pvToLoad    * d;
+      batToLoad   += monthly[m].hourly[h].batToLoad   * d;
+      grid        += monthly[m].hourly[h].grid        * d;
+      pvToGrid    += monthly[m].hourly[h].pvToGrid    * d;
+      curtailed   += monthly[m].hourly[h].curtailed   * d;
+      pvToBattery += monthly[m].hourly[h].pvToBattery * d;
     }
     return {pv:pv/365, pvToLoad:pvToLoad/365, batToLoad:batToLoad/365, grid:grid/365,
-            pvToGrid:pvToGrid/365, curtailed:curtailed/365,
+            pvToGrid:pvToGrid/365, curtailed:curtailed/365, pvToBattery:pvToBattery/365,
             load: computeHourlyLoadW(p)[h] / 1000};
   });
 
@@ -702,14 +705,17 @@ function initCharts() {
     data: {
       labels: MONTH_NAMES,
       datasets: [
-        {label:'PV → Last',       type:'bar',  backgroundColor:'#22c55e',               data:new Array(12).fill(0), stack:'cons', order:2},
-        {label:'Batterie → Last', type:'bar',  backgroundColor:'#3b82f6',               data:new Array(12).fill(0), stack:'cons', order:2},
-        {label:'Netz → Last',      type:'bar',  backgroundColor:'#ef4444',               data:new Array(12).fill(0), stack:'cons', order:2},
-        {label:'Einspeisung',     type:'bar',  backgroundColor:'rgba(168,85,247,0.55)', data:new Array(12).fill(0), stack:'prod', order:2},
-        {label:'Kappung',         type:'bar',  backgroundColor:'rgba(156,163,175,0.55)',data:new Array(12).fill(0), stack:'prod', order:2},
-        {label:'PV-Produktion',   type:'line', borderColor:'#f97316', borderWidth:2.5,
+        {label:'PV → Last',         type:'bar',  backgroundColor:'#22c55e',               data:new Array(12).fill(0), stack:'e', order:2},
+        {label:'Batterie → Last',   type:'bar',  backgroundColor:'#3b82f6',               data:new Array(12).fill(0), stack:'e', order:2},
+        {label:'Netz → Last',       type:'bar',  backgroundColor:'#ef4444',               data:new Array(12).fill(0), stack:'e', order:2},
+        {label:'PV → Batterie',     type:'bar',  backgroundColor:'rgba(250,204,21,0.7)',  data:new Array(12).fill(0), stack:'e', order:2},
+        {label:'PV → Einspeisung',  type:'bar',  backgroundColor:'rgba(168,85,247,0.55)', data:new Array(12).fill(0), stack:'e', order:2},
+        {label:'Kappung',           type:'bar',  backgroundColor:'rgba(156,163,175,0.55)',data:new Array(12).fill(0), stack:'e', order:2},
+        {label:'PV-Produktion',     type:'line', borderColor:'#f97316', borderWidth:2.5,
           pointRadius:3, pointBackgroundColor:'#f97316',
-          data:new Array(12).fill(0), tension:0.35, order:1, fill:false}
+          data:new Array(12).fill(0), tension:0.35, order:1, fill:false},
+        {label:'Verbrauch',         type:'line', borderColor:'#1e293b', borderWidth:1.5,
+          borderDash:[5,3], pointRadius:0, data:new Array(12).fill(0), tension:0.2, order:1, fill:false}
       ]
     },
     options: {
@@ -732,14 +738,15 @@ function initCharts() {
     data: {
       labels: Array.from({length:24}, (_,i) => i+'h'),
       datasets: [
-        {label:'PV → Last',       type:'bar',  backgroundColor:'#22c55e',               data:new Array(24).fill(0), stack:'cons', order:2},
-        {label:'Batterie → Last', type:'bar',  backgroundColor:'#3b82f6',               data:new Array(24).fill(0), stack:'cons', order:2},
-        {label:'Netz → Last',     type:'bar',  backgroundColor:'#ef4444',               data:new Array(24).fill(0), stack:'cons', order:2},
-        {label:'Einspeisung',     type:'bar',  backgroundColor:'rgba(168,85,247,0.55)', data:new Array(24).fill(0), stack:'prod', order:2},
-        {label:'Kappung',         type:'bar',  backgroundColor:'rgba(156,163,175,0.55)',data:new Array(24).fill(0), stack:'prod', order:2},
-        {label:'PV-Produktion',   type:'line', borderColor:'#f97316', borderWidth:2,
+        {label:'PV → Last',        type:'bar',  backgroundColor:'#22c55e',               data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'Batterie → Last',  type:'bar',  backgroundColor:'#3b82f6',               data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'Netz → Last',      type:'bar',  backgroundColor:'#ef4444',               data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'PV → Batterie',    type:'bar',  backgroundColor:'rgba(250,204,21,0.7)',  data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'PV → Einspeisung', type:'bar',  backgroundColor:'rgba(168,85,247,0.55)', data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'Kappung',          type:'bar',  backgroundColor:'rgba(156,163,175,0.55)',data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'PV-Produktion',    type:'line', borderColor:'#f97316', borderWidth:2,
           pointRadius:0, data:new Array(24).fill(0), tension:0.35, order:1, fill:false},
-        {label:'Verbrauch',       type:'line', borderColor:'#1e293b', borderWidth:1.5,
+        {label:'Verbrauch',        type:'line', borderColor:'#1e293b', borderWidth:1.5,
           borderDash:[5,3], pointRadius:0, data:new Array(24).fill(0), tension:0.2, order:1, fill:false}
       ]
     },
@@ -829,9 +836,11 @@ function updateResults() {
   d[0].data = ms.map(m => +r.monthly[m].pv_to_load.toFixed(1));
   d[1].data = ms.map(m => +r.monthly[m].bat_to_load.toFixed(1));
   d[2].data = ms.map(m => +r.monthly[m].grid_to_load.toFixed(1));
-  d[3].data = ms.map(m => +r.monthly[m].pv_to_grid.toFixed(1));
-  d[4].data = ms.map(m => +r.monthly[m].pv_curtailed.toFixed(1));
-  d[5].data = ms.map(m => +r.monthly[m].pv_produced.toFixed(1));
+  d[3].data = ms.map(m => +r.monthly[m].pv_to_battery.toFixed(1));
+  d[4].data = ms.map(m => +r.monthly[m].pv_to_grid.toFixed(1));
+  d[5].data = ms.map(m => +r.monthly[m].pv_curtailed.toFixed(1));
+  d[6].data = ms.map(m => +r.monthly[m].pv_produced.toFixed(1));
+  d[7].data = new Array(12).fill(+(p.yearlyConsumption / 12).toFixed(1));
   monthlyChart.update();
 
   // Daily chart
@@ -846,10 +855,11 @@ function updateDailyChart(r) {
   dd[0].data = hData.map(h => +h.pvToLoad.toFixed(4));
   dd[1].data = hData.map(h => +h.batToLoad.toFixed(4));
   dd[2].data = hData.map(h => +h.grid.toFixed(4));
-  dd[3].data = hData.map(h => +(h.pvToGrid  || 0).toFixed(4));
-  dd[4].data = hData.map(h => +(h.curtailed || 0).toFixed(4));
-  dd[5].data = hData.map(h => +h.pv.toFixed(4));
-  dd[6].data = hData.map(h => +h.load.toFixed(4));
+  dd[3].data = hData.map(h => +(h.pvToBattery || 0).toFixed(4));
+  dd[4].data = hData.map(h => +(h.pvToGrid    || 0).toFixed(4));
+  dd[5].data = hData.map(h => +(h.curtailed   || 0).toFixed(4));
+  dd[6].data = hData.map(h => +h.pv.toFixed(4));
+  dd[7].data = hData.map(h => +h.load.toFixed(4));
   dailyChart.update();
 }
 
