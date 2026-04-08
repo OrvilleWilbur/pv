@@ -19,11 +19,11 @@ header { background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%); color:white
 header .logo { font-size:1.6rem; }
 header h1 { font-size:1.15rem; font-weight:700; }
 header p { font-size:0.75rem; opacity:0.65; }
-main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem; max-width:1440px; margin:0 auto; align-items:start; }
+main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem 50px; max-width:1400px; margin:0 auto; align-items:start; }
 #inputs { display:flex; flex-direction:column; gap:0.65rem; position:sticky; top:1rem; max-height:calc(100vh - 2rem); overflow-y:auto; padding-right:2px; }
 #inputs::-webkit-scrollbar { width:4px; }
 #inputs::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
-.card { background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.card { background:var(--panel); border:1px solid var(--border); border-radius:8px; }
 .card-header { background:var(--bg); border-bottom:1px solid var(--border); padding:0.5rem 0.75rem; font-weight:700; font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
 .card-body { padding:0.65rem 0.75rem; display:flex; flex-direction:column; gap:0.45rem; }
 .field { display:grid; grid-template-columns:1fr auto; align-items:center; gap:0.5rem; min-height:26px; }
@@ -59,7 +59,7 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem; ma
 .btn:disabled { opacity:.6; cursor:not-allowed; }
 .btn-opt { background:linear-gradient(135deg,#0ea5e9,#3b82f6); color:white; }
 #results { display:flex; flex-direction:column; gap:0.85rem; }
-.kpi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.65rem; }
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0.65rem; }
 .kpi-card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:0.75rem; text-align:center; }
 .kpi-card .kv { font-size:1.5rem; font-weight:800; color:var(--accent); line-height:1.1; }
 .kpi-card .ku { font-size:0.7rem; color:var(--muted); }
@@ -89,7 +89,7 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem; ma
 .opt-table tr:last-child td { border-bottom:none; }
 .opt-table tr:first-child td { color:var(--orange); }
 @media(max-width:920px) {
-  main { grid-template-columns:1fr; }
+  main { grid-template-columns:1fr; padding:1rem 16px; }
   #inputs { position:static; max-height:none; }
   .kpi-grid { grid-template-columns:repeat(2,1fr); }
   .two-col { grid-template-columns:1fr; }
@@ -276,12 +276,18 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem; ma
     <div class="kpi-card">
       <div class="kv" id="kpiNetz">–</div>
       <div class="ku">kWh/Jahr</div>
-      <div class="kl">Netzbezug</div>
+      <div class="kl">Netz → Last</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kv" id="kpiPvBat">–</div>
+      <div class="ku">kWh/Jahr</div>
+      <div class="kl">PV → Batterie</div>
     </div>
     <div class="kpi-card">
       <div class="kv" id="kpiEinspeisung">–</div>
       <div class="ku">kWh/Jahr</div>
-      <div class="kl">Einspeisung</div>
+      <div class="kl">PV → Netz</div>
+      <div class="ks" id="kpiEinspeisungEur"></div>
     </div>
     <div class="kpi-card">
       <div class="kv" id="kpiKappung">–</div>
@@ -313,40 +319,38 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem; ma
     <canvas id="dailyChart" height="120"></canvas>
   </div>
 
-  <div class="two-col">
-    <div class="chart-wrap">
-      <h3 style="margin-bottom:0.6rem;">💶 Finanzkalkulation</h3>
-      <table class="fin-table">
-        <tr><td class="ft-label">Jährliche Ersparnis</td><td class="ft-val" id="finSavings">–</td></tr>
-        <tr><td class="ft-label">Einspeiseerlös/Jahr</td><td class="ft-val" id="finFeed">–</td></tr>
-        <tr class="ft-hl"><td class="ft-label" style="font-weight:700;">Gesamtertrag/Jahr</td><td class="ft-val" id="finTotal">–</td></tr>
-        <tr class="ft-sep"><td colspan="2"></td></tr>
-        <tr><td class="ft-label">Gesamtinvestition</td><td class="ft-val" id="finInvestment">–</td></tr>
-        <tr class="ft-hl"><td class="ft-label" style="font-weight:700;">Amortisationszeit</td><td class="ft-val" id="finAmort">–</td></tr>
-        <tr class="ft-total ft-hl"><td class="ft-label">10-Jahres-Gewinn</td><td class="ft-val" id="finProfit10">–</td></tr>
-      </table>
-    </div>
-    <div class="chart-wrap">
-      <h3 style="margin-bottom:0.6rem;">📈 Amortisationskurve</h3>
-      <canvas id="amortChart" height="200"></canvas>
-    </div>
+  <div class="chart-wrap">
+    <h3 style="margin-bottom:0.6rem;">💶 Finanzkalkulation</h3>
+    <table class="fin-table">
+      <tr><td class="ft-label">Jährliche Ersparnis</td><td class="ft-val" id="finSavings">–</td></tr>
+      <tr><td class="ft-label">Einspeiseerlös/Jahr</td><td class="ft-val" id="finFeed">–</td></tr>
+      <tr class="ft-hl"><td class="ft-label" style="font-weight:700;">Gesamtertrag/Jahr</td><td class="ft-val" id="finTotal">–</td></tr>
+      <tr class="ft-sep"><td colspan="2"></td></tr>
+      <tr><td class="ft-label">Gesamtinvestition</td><td class="ft-val" id="finInvestment">–</td></tr>
+      <tr class="ft-hl"><td class="ft-label" style="font-weight:700;">Amortisationszeit</td><td class="ft-val" id="finAmort">–</td></tr>
+      <tr class="ft-total ft-hl"><td class="ft-label">10-Jahres-Gewinn</td><td class="ft-val" id="finProfit10">–</td></tr>
+    </table>
   </div>
 
-  <div class="two-col">
-    <div class="chart-wrap">
-      <h3 style="margin-bottom:0.6rem;">🥧 Wohin geht der PV-Strom?</h3>
-      <canvas id="pieChart" height="200"></canvas>
-    </div>
-    <div class="chart-wrap" id="optResults">
-      <h3 style="margin-bottom:0.6rem;">🏆 Optimale Konfigurationen</h3>
-      <table class="opt-table">
-        <thead>
-          <tr><th>Rang</th><th>Module</th><th>Speicher</th><th>(WR)</th><th>Investition</th><th>Ertrag/a</th><th>Amort.</th><th>10J-Gewinn</th></tr>
-        </thead>
-        <tbody id="optTableBody"></tbody>
-      </table>
-      <p style="font-size:0.72rem;color:var(--muted);padding:0.5rem 0.6rem 0;">WR-Anzahl ergibt sich aus Modulzahl (max. 4 Module pro Wechselrichter).</p>
-    </div>
+  <div class="chart-wrap" id="optResults">
+    <h3 style="margin-bottom:0.6rem;">🏆 Optimale Konfigurationen</h3>
+    <table class="opt-table" id="optTable">
+      <thead>
+        <tr>
+          <th style="text-align:left;cursor:pointer" data-col="rank">Rang</th>
+          <th style="cursor:pointer" data-col="nMod">Module</th>
+          <th style="cursor:pointer" data-col="nWR">(WR)</th>
+          <th style="cursor:pointer" data-col="bat">Speicher</th>
+          <th style="cursor:pointer" data-col="investment">Invest.</th>
+          <th style="cursor:pointer" data-col="annualRevenue">Ertrag/a</th>
+          <th style="cursor:pointer" data-col="amort">Amort. ▲</th>
+          <th style="cursor:pointer" data-col="profit10">10J-Gew.</th>
+          <th style="cursor:pointer" data-col="irr">IRR</th>
+        </tr>
+      </thead>
+      <tbody id="optTableBody"></tbody>
+    </table>
+    <p style="font-size:0.72rem;color:var(--muted);padding:0.5rem 0.6rem 0;">WR-Anzahl ergibt sich aus Modulzahl (max. 4 Module pro Wechselrichter).</p>
   </div>
 
 </section>
@@ -663,7 +667,7 @@ function calcFinance(r, p) {
 }
 
 // ===== CHARTS =====
-let monthlyChart, dailyChart, amortChart, pieChart;
+let monthlyChart, dailyChart;
 
 // Background-Band-Plugin for daily chart
 const dailyBgPlugin = {
@@ -693,7 +697,7 @@ function initCharts() {
       datasets: [
         {label:'PV → Last',       type:'bar',  backgroundColor:'#22c55e',               data:new Array(12).fill(0), stack:'cons', order:2},
         {label:'Batterie → Last', type:'bar',  backgroundColor:'#3b82f6',               data:new Array(12).fill(0), stack:'cons', order:2},
-        {label:'Netzbezug',       type:'bar',  backgroundColor:'#ef4444',               data:new Array(12).fill(0), stack:'cons', order:2},
+        {label:'Netz → Last',      type:'bar',  backgroundColor:'#ef4444',               data:new Array(12).fill(0), stack:'cons', order:2},
         {label:'Einspeisung',     type:'bar',  backgroundColor:'rgba(168,85,247,0.55)', data:new Array(12).fill(0), stack:'prod', order:2},
         {label:'Kappung',         type:'bar',  backgroundColor:'rgba(156,163,175,0.55)',data:new Array(12).fill(0), stack:'prod', order:2},
         {label:'PV-Produktion',   type:'line', borderColor:'#f97316', borderWidth:2.5,
@@ -704,8 +708,8 @@ function initCharts() {
     options: {
       responsive:true, interaction:{mode:'index'},
       scales: {
-        y:{stacked:false, beginAtZero:true, title:{display:true,text:'kWh'}, grid:{color:'rgba(0,0,0,0.05)'}},
-        x:{grid:{display:false}}
+        y:{stacked:true, beginAtZero:true, title:{display:true,text:'kWh'}, grid:{color:'rgba(0,0,0,0.05)'}},
+        x:{stacked:true, grid:{display:false}}
       },
       plugins: {
         legend:{position:'bottom',labels:{boxWidth:11,font:{size:11}}},
@@ -723,7 +727,7 @@ function initCharts() {
       datasets: [
         {label:'PV → Last',       type:'bar',  backgroundColor:'#22c55e',               data:new Array(24).fill(0), stack:'e', order:2},
         {label:'Batterie → Last', type:'bar',  backgroundColor:'#3b82f6',               data:new Array(24).fill(0), stack:'e', order:2},
-        {label:'Netzbezug',       type:'bar',  backgroundColor:'#ef4444',               data:new Array(24).fill(0), stack:'e', order:2},
+        {label:'Netz → Last',      type:'bar',  backgroundColor:'#ef4444',               data:new Array(24).fill(0), stack:'e', order:2},
         {label:'PV-Produktion',   type:'line', borderColor:'#f97316', borderWidth:2,
           pointRadius:0, data:new Array(24).fill(0), tension:0.35, order:1, fill:false},
         {label:'Verbrauch',       type:'line', borderColor:'#1e293b', borderWidth:1.5,
@@ -743,44 +747,6 @@ function initCharts() {
     }
   });
 
-  // ---- 4. Amortisation ----
-  amortChart = new Chart(document.getElementById('amortChart'), {
-    type:'line',
-    data:{
-      labels: Array.from({length:16},(_,i)=>i+'J'),
-      datasets:[
-        {
-          label:'Kum. Netto-Ertrag', data:new Array(16).fill(0),
-          borderColor:'#3b82f6', borderWidth:2,
-          pointRadius:(ctx)=>{ const d=ctx.chart.data.datasets[0].data,i=ctx.dataIndex; return(i>0&&d[i]>=0&&d[i-1]<0)?8:3; },
-          pointBackgroundColor:(ctx)=>{ const d=ctx.chart.data.datasets[0].data,i=ctx.dataIndex; return(i>0&&d[i]>=0&&d[i-1]<0)?'#f97316':'#3b82f6'; },
-          fill:{target:'origin',above:'rgba(34,197,94,0.12)',below:'rgba(239,68,68,0.12)'}, tension:0.2
-        },
-        {label:'Break-Even', data:new Array(16).fill(0), borderColor:'rgba(100,116,139,0.5)', borderDash:[6,3], borderWidth:1.5, pointRadius:0, fill:false}
-      ]
-    },
-    options:{
-      responsive:true,
-      scales:{y:{title:{display:true,text:'€'},grid:{color:'rgba(0,0,0,0.05)'}},x:{title:{display:true,text:'Jahre'},grid:{display:false}}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?`${ctx.parsed.y.toFixed(0)} €`:null}}}
-    }
-  });
-
-  // ---- 5. Energiefluss Pie ----
-  pieChart = new Chart(document.getElementById('pieChart'), {
-    type:'doughnut',
-    data:{
-      labels:['PV direkt','Batterie geladen','Einspeisung','Kappung'],
-      datasets:[{data:[1,0,0,0],backgroundColor:['#22c55e','#3b82f6','#a855f7','#9ca3af'],borderWidth:2,borderColor:'#fff'}]
-    },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{position:'bottom',labels:{boxWidth:11,font:{size:11}}},
-        tooltip:{callbacks:{label:ctx=>{ const tot=ctx.dataset.data.reduce((a,b)=>a+b,0); const pct=tot>0?(ctx.parsed/tot*100).toFixed(1):0; return `${ctx.label}: ${ctx.parsed.toFixed(0)} kWh (${pct}%)`; }}}
-      }
-    }
-  });
 }
 
 // ===== PARAMS =====
@@ -834,7 +800,9 @@ function updateResults() {
   document.getElementById('kpiEVPct').textContent        = r.pv_produced > 0 ? `(${fmt(evPct)}% von PV)` : '';
   document.getElementById('kpiDeckung').textContent      = fmt(deckung, 1);
   document.getElementById('kpiNetz').textContent         = fmt(r.grid_to_load);
+  document.getElementById('kpiPvBat').textContent        = fmt(r.pv_to_battery);
   document.getElementById('kpiEinspeisung').textContent  = fmt(r.pv_to_grid);
+  document.getElementById('kpiEinspeisungEur').textContent = fmtE(r.pv_to_grid * p.feedInRate / 100);
   document.getElementById('kpiKappung').textContent      = fmt(r.pv_curtailed);
 
   document.getElementById('finSavings').textContent    = fmtE(f.savings);
@@ -860,13 +828,6 @@ function updateResults() {
   // Daily chart
   updateDailyChart(r);
 
-  // Amort
-  amortChart.data.datasets[0].data = Array.from({length:16},(_,i) => +(f.annualRevenue*i - f.investment).toFixed(0));
-  amortChart.update('none');
-
-  // Pie
-  pieChart.data.datasets[0].data = [+r.pv_to_load.toFixed(1), +r.pv_to_battery.toFixed(1), +r.pv_to_grid.toFixed(1), +r.pv_curtailed.toFixed(1)];
-  pieChart.update('none');
 }
 
 function updateDailyChart(r) {
@@ -908,39 +869,59 @@ function applySnowDefault() {
 }
 
 // ===== OPTIMIZATION =====
+let optResults = [];
+let optSortCol = 'amort';
+let optSortAsc = true;
+
+function renderOptTable() {
+  const sorted = [...optResults].sort((a, b) => {
+    const av = a[optSortCol], bv = b[optSortCol];
+    return optSortAsc ? av - bv : bv - av;
+  });
+  const medals = ['🥇','🥈','🥉'];
+  const tbody = document.getElementById('optTableBody');
+  tbody.innerHTML = '';
+  sorted.slice(0, 10).forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const medal = medals[i] || `${i+1}.`;
+    tr.innerHTML = `<td>${medal}</td>
+      <td>${r.nMod} Stk.</td>
+      <td style="color:var(--muted)">${r.nWR}</td>
+      <td>${r.bat} kWh</td>
+      <td>${fmt(r.investment,0)} €</td>
+      <td>${fmt(r.annualRevenue,2)} €</td>
+      <td>${r.amort<99?fmt(r.amort,1)+' J':'> 99 J'}</td>
+      <td style="color:${r.profit10>=0?'var(--green)':'var(--red)'}">${r.profit10>=0?'+':''}${fmt(r.profit10,0)} €</td>
+      <td>${fmt(r.irr,1)} %</td>`;
+    tbody.appendChild(tr);
+  });
+  // Update sort indicators on headers
+  document.querySelectorAll('#optTable thead th').forEach(th => {
+    const col = th.dataset.col;
+    if (!col || col === 'rank') return;
+    th.textContent = th.textContent.replace(/[ ▲▼]/g, '').trimEnd();
+    if (col === optSortCol) th.textContent += optSortAsc ? ' ▲' : ' ▼';
+  });
+}
+
 function runOptimization() {
   const btn = document.getElementById('optimizeBtn');
   btn.textContent = '⏳ Berechne…'; btn.disabled = true;
   setTimeout(() => {
     const p = getParams();
-    const results = [];
-    // nWR ergibt sich aus Modulzahl: max 4 Module pro WR
+    optResults = [];
     for (let nMod = 1; nMod <= 16; nMod++) {
       const nWR = Math.ceil(nMod / 4);
       for (const bat of [0, 2, 4, 6, 8, 10]) {
         const pp = {...p, nModules:nMod, nWR, batKWh:bat};
         const r  = simulateYearTotals(pp);
         const f  = calcFinance(r, pp);
-        results.push({nMod, nWR, bat, ...f});
+        const irr = f.investment > 0 ? f.annualRevenue / f.investment * 100 : 0;
+        optResults.push({nMod, nWR, bat, irr, ...f});
       }
     }
-    results.sort((a,b) => Math.abs(a.amort-b.amort) > 0.01 ? a.amort-b.amort : b.profit10-a.profit10);
-    const top3 = results.slice(0,3);
-    const tbody = document.getElementById('optTableBody');
-    tbody.innerHTML = '';
-    ['🥇','🥈','🥉'].forEach((m,i) => {
-      const r = top3[i]; if (!r) return;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${m} Rang ${i+1}</td>
-        <td>${r.nMod} Stk.</td>
-        <td>${r.bat} kWh</td>
-        <td style="color:var(--muted)">${r.nWR}</td>
-        <td>${fmt(r.investment,0)} €</td>
-        <td>${fmt(r.annualRevenue,2)} €</td>
-        <td>${r.amort<99?fmt(r.amort,1)+' J':'> 99 J'}</td>
-        <td style="color:${r.profit10>=0?'var(--green)':'var(--red)'}">${r.profit10>=0?'+':''}${fmt(r.profit10,0)} €</td>`;
-      tbody.appendChild(tr);
-    });
+    optSortCol = 'amort'; optSortAsc = true;
+    renderOptTable();
     document.getElementById('optResults').classList.add('visible');
     btn.textContent = '🔍 Optimale Konfiguration finden'; btn.disabled = false;
   }, 50);
@@ -1030,6 +1011,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('optimizeBtn').addEventListener('click', runOptimization);
+
+  // Opt table sort
+  document.querySelectorAll('#optTable thead th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (!col || col === 'rank') return;
+      if (optSortCol === col) { optSortAsc = !optSortAsc; }
+      else { optSortCol = col; optSortAsc = !['profit10','annualRevenue','irr'].includes(col); }
+      renderOptTable();
+    });
+  });
 });
 </script>
 </body>
