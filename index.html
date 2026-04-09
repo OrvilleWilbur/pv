@@ -93,7 +93,21 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem 50p
   #inputs { position:static; max-height:none; }
   .kpi-grid { grid-template-columns:repeat(2,1fr); }
   .two-col { grid-template-columns:1fr; }
-  #methodology { padding:0 16px; }
+  #methodology,#disclaimer,#impressum,#printBtnWrap { padding:0 16px; }
+}
+@media print {
+  header { break-after:avoid; }
+  #inputs { display:none; }
+  .btn, #optimizeBtn, #printBtn { display:none; }
+  #optResults { display:none; }
+  .chart-select { display:none; }
+  main { display:block; }
+  #results { max-width:100%; }
+  .chart-wrap { break-inside:avoid; }
+  #methodology { break-before:page; }
+  #disclaimer, #impressum { break-inside:avoid; }
+  body { font-size:11px; }
+  .kpi-grid { grid-template-columns:repeat(4,1fr); }
 }
 </style>
 </head>
@@ -365,6 +379,44 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem 50p
     <div id="methodContent" style="background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:1.5rem;font-size:0.85rem;line-height:1.7;"></div>
   </details>
 </section>
+
+<div id="printBtnWrap" style="text-align:center;padding:1.5rem 50px;max-width:1400px;margin:0 auto;">
+  <button class="btn btn-opt" id="printBtn" onclick="window.print()" style="max-width:400px;">📄 Bericht als PDF exportieren</button>
+</div>
+
+<section id="disclaimer" style="max-width:1400px;margin:0 auto 1rem;padding:0 50px;">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1.5rem;font-size:0.82rem;color:var(--muted);line-height:1.7;">
+    <h3 style="font-size:0.9rem;color:var(--text);margin-bottom:0.75rem;">⚠️ Haftungsausschluss</h3>
+    <p>Dieser Simulator dient ausschließlich der informativen Abschätzung und stellt keine Energieberatung, Anlageberatung oder verbindliche Ertragsprognose dar. Alle Berechnungen basieren auf vereinfachten Modellen und historischen Durchschnittswerten — tatsächliche Erträge können aufgrund von Wetter, Verschattung, Modulalterung, Wechselrichterverlusten und weiteren Faktoren erheblich abweichen.</p>
+    <p style="margin-top:0.75rem;"><strong style="color:var(--text);">Wesentliche Modellvereinfachungen:</strong></p>
+    <ul style="padding-left:1.2rem;margin-top:0.35rem;">
+      <li>Keine Berücksichtigung von Moduldegradation (typisch 0,3–0,5 %/Jahr)</li>
+      <li>Keine Inflation der Strompreise oder Einspeisevergütung</li>
+      <li>Keine Kapitalkosten (Opportunitätskosten, Finanzierung)</li>
+      <li>Keine Temperaturabhängigkeit der Modulleistung</li>
+      <li>Keine Verschattungsmodellierung (nur pauschales Derating)</li>
+      <li>Keine Wechselrichterverluste (im Derating-Faktor pauschal enthalten)</li>
+      <li>Keine saisonale Batteriedegradation oder kalendarische Alterung</li>
+      <li>Einstrahlungsdaten sind langjährige Mittelwerte — Einzeljahre können ±15 % abweichen</li>
+      <li><strong style="color:var(--text);">Stündliche Zeitauflösung:</strong> Hochlast-Spitzen innerhalb einer Stunde (Wasserkocher 2 kW, Herd 3 kW, Durchlauferhitzer 18 kW) werden über die Stunde gemittelt. Da der Wechselrichter maximal 800 W AC liefert, können Verbraucher &gt; 800 W in der Realität nie vollständig durch PV gedeckt werden — das Modell überschätzt den Deckungsgrad für Haushalte mit häufigen Hochlast-Spitzen. Die Einstellung „Aktive Stunden" kompensiert dies teilweise durch Lastkonzentration.</li>
+    </ul>
+    <p style="margin-top:0.75rem;">Die angegebenen Einstrahlungsdaten stammen aus der PVGIS-SARAH2-Datenbank (Referenzperiode 2005–2020) und beziehen sich auf die horizontale Globalstrahlung. Reale PV-Erträge hängen zusätzlich von Ausrichtung, Neigung und lokaler Verschattung ab, die hier nur über den Derating-Faktor pauschal berücksichtigt werden.</p>
+    <p style="margin-top:0.75rem;">Für verbindliche Ertragsprognosen und Wirtschaftlichkeitsberechnungen wird die Beratung durch einen qualifizierten Energieberater empfohlen.</p>
+  </div>
+</section>
+
+<footer id="impressum" style="max-width:1400px;margin:1rem auto 2rem;padding:0 50px;">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1.5rem;font-size:0.82rem;color:var(--muted);line-height:1.7;">
+    <h3 style="font-size:0.9rem;color:var(--text);margin-bottom:0.75rem;">Impressum</h3>
+    <p>Angaben gemäß § 5 DDG:<br>Spectabilis<br>E-Mail: 2025@bowo.de</p>
+    <p style="margin-top:0.75rem;">Inhaltlich verantwortlich gemäß § 18 Abs. 2 MStV:<br>Spectabilis</p>
+    <p style="margin-top:0.75rem;font-size:0.75rem;">
+      Simulationsmodell und Implementierung: Claude (Anthropic) im Auftrag des Betreibers.<br>
+      Einstrahlungsdaten: © European Commission, PVGIS-SARAH2.<br>
+      Quellcode: <a href="https://github.com/orvillewilbur/pv" target="_blank" style="color:var(--accent);">github.com/orvillewilbur/pv</a>
+    </p>
+  </div>
+</footer>
 
 <script>
 // ===== LOCATION DATA =====
@@ -906,20 +958,20 @@ function updateMethodology(r, p, f) {
 
   el.innerHTML = `
 <h4 ${hs}>1. PV-Produktionsmodell</h4>
-<p><strong>Datenquelle:</strong> PVGIS-SARAH2 (European Commission Joint Research Centre) — monatliche mittlere Globalstrahlung auf horizontaler Fläche.</p>
+<p><strong>Datenquelle:</strong> PVGIS-SARAH2 (European Commission Joint Research Centre)<sup style="color:var(--accent);cursor:help;" title="CM SAF SARAH-2, Zeitraum 2005–2020, PVGIS 5.2, EU Science Hub. https://re.jrc.ec.europa.eu/pvg_tools/en/">¹</sup> — monatliche mittlere Globalstrahlung auf horizontaler Fläche.</p>
 <div ${cs}>PV_month(m) = G_h(m) × d(m) × P_peak × (1 − f_derating) × (1 − f_snow(m))</div>
 <table ${ts}>
   <tr><th ${thS}>Parameter</th><th ${thS}>Wert</th></tr>
   <tr><td ${tdS}>P_peak = ${p.nModules} Module × ${p.wpPerModule} Wp</td><td ${tdA}>${ac(f1(kWp)+' kWp')}</td></tr>
   <tr><td ${tdS}>f_derating</td><td ${tdA}>${ac(p.derating+' %')}</td></tr>
   <tr><td ${tdS}>G_h(Jul) — ${p.location}</td><td ${tdA}>${ac(loc.irradiance[6]+' kWh/kWp/Tag')}</td></tr>
-  <tr><td ${tdS}>Sonnenaufgang/−untergang Jul</td><td ${tdA}>${ac(f1(sunJ[0])+' / '+f1(sunJ[1])+' Uhr (CET)')}</td></tr>
+  <tr><td ${tdS}>Sonnenaufgang/−untergang Jul<sup style="color:var(--accent);cursor:help;" title="Astronomische Berechnung für den 15. jedes Monats, CET (UTC+1), ohne Sommerzeit. Nach NOAA Solar Calculator.">²</sup></td><td ${tdA}>${ac(f1(sunJ[0])+' / '+f1(sunJ[1])+' Uhr (CET)')}</td></tr>
 </table>
 <p><strong>Tagesgang:</strong> <code>w(h) = sin((h − t_rise)/(t_set − t_rise) × π)</code>, normiert auf Tagesproduktion.</p>
-<p><strong>Schneetage:</strong> ${ac(p.snowDays)} /Jahr (${p.location}: ${loc.elevation} m ü. NHN, Default ${defSnow} Tage)</p>
+<p><strong>Schneetage:</strong> ${ac(p.snowDays)} /Jahr (${p.location}: ${loc.elevation} m ü. NHN, Default ${defSnow} Tage<sup style="color:var(--accent);cursor:help;" title="Vereinfachtes Modell nach DWD-Klimadaten (1991–2020). Defaults (0/5/15/34 Tage) sind konservative Mittelwerte für die PV-Ertragsminderung, nicht meteorologische Schneedeckentage.">³</sup>)</p>
 <table ${ts}>
   <tr><th ${thS}>Monat</th><th ${thS}>Jan</th><th ${thS}>Feb</th><th ${thS}>Mär</th><th ${thS}>Nov</th><th ${thS}>Dez</th></tr>
-  <tr><td ${tdS}>Anteil</td><td ${tdS}>30%</td><td ${tdS}>25%</td><td ${tdS}>10%</td><td ${tdS}>10%</td><td ${tdS}>25%</td></tr>
+  <tr><td ${tdS}>Anteil<sup style="color:var(--accent);cursor:help;" title="Empirische Verteilung der Schneetage auf Wintermonate, abgeleitet aus DWD-Monatsmittelwerten für Mittelgebirgsstationen.">⁴</sup></td><td ${tdS}>30%</td><td ${tdS}>25%</td><td ${tdS}>10%</td><td ${tdS}>10%</td><td ${tdS}>25%</td></tr>
   <tr><td ${tdS}>Tage</td><td ${tdA}>${ac(snowM(1))}</td><td ${tdA}>${ac(snowM(2))}</td><td ${tdA}>${ac(snowM(3))}</td><td ${tdA}>${ac(snowM(11))}</td><td ${tdA}>${ac(snowM(12))}</td></tr>
 </table>
 
@@ -935,7 +987,7 @@ function updateMethodology(r, p, f) {
 <p>Kontrolle: P_base × 8760h + Σ(Fenster-Energie) = ${ac(f0(p.yearlyConsumption)+' kWh')} ✓</p>
 
 <h4 ${hs}>3. Energiefluss-Simulation</h4>
-<p><strong>Zeitauflösung:</strong> 8760 Stunden/Jahr. Parameter: ${ac('AC_max = '+acMax+' W')} | ${ac('η_bat = '+p.batEff+'%')} | ${ac('C_bat = '+p.batKWh+' kWh')}</p>
+<p><strong>Zeitauflösung:</strong> 8760 Stunden/Jahr. Parameter: ${ac('AC_max = '+acMax+' W')}<sup style="color:var(--accent);cursor:help;" title="§12a EEG 2023 i.V.m. Solarpaket I (BGBl. 2024 I Nr. 151) — 800 W AC-Obergrenze für steckerfertige PV-Anlagen seit 16.05.2024.">⁵</sup> | ${ac('η_bat = '+p.batEff+'%')}<sup style="color:var(--accent);cursor:help;" title="Typischer Round-Trip-Wirkungsgrad LiFePO₄: 90–95%. Dubarry et al., Journal of Power Sources, 2019.">⁷</sup> | ${ac('C_bat = '+p.batKWh+' kWh')}</p>
 <div ${cs}>Tagsüber (PV > 0):
   1. PV → Last:        min(PV_h, Last_h, AC_max)
   2. Bat → Last:       min(Restlast/η, SOC, AC_rest/η)
@@ -970,7 +1022,7 @@ Entladen: ΔE_entnahme = min(Last/η, SOC, AC_rest/η);  E_geliefert = ΔE_entna
   = ${p.nModules}×${p.moduleCost}€ + ${p.nWR}×${p.wrCost}€ + max(0,${p.batKWh}−${p.nWR}×2,11)×${p.batteryCostPerKwh}€ + ${p.otherCost}€
   = ${f0(modCostTotal)}€ + ${f0(wrCostTotal)}€ + ${f0(extraBatCost)}€ + ${f0(p.otherCost)}€
   = ${ac(f0(f.investment)+' €')}</div>
-<p style="font-size:0.78rem;color:var(--muted);">Jeder Solakon ONE WR enthält 2,11 kWh LiFePO₄-Basis-Speicher; nur darüber hinausgehende Kapazität kostet extra.</p>
+<p style="font-size:0.78rem;color:var(--muted);">Jeder Solakon ONE WR enthält 2,11 kWh LiFePO₄-Basis-Speicher<sup style="color:var(--accent);cursor:help;" title="Herstellerangabe Solakon GmbH, Produkt ‚Solakon ONE', Stand 2024. Nutzbare Kapazität nach Entladetiefe (DoD).">⁶</sup>; nur darüber hinausgehende Kapazität kostet extra.</p>
 <table ${ts}>
   <tr><th ${thS}>Position</th><th ${thS}>Berechnung</th><th ${thS}>Ergebnis</th></tr>
   <tr><td ${tdS}>Ersparnis</td><td ${tdS}>(${f1(r.pv_to_load+r.bat_to_load)} kWh) × ${p.electricityPrice} ct/kWh</td><td ${tdA}>${ac(f2(f.savings)+' €/a')}</td></tr>
@@ -987,12 +1039,23 @@ WR-Anzahl:    n_WR = ⌈n_mod / 4⌉  (max. 4 MPPT-Eingänge pro WR)
 Methode:      Brute-Force, vollständige Enumeration aller 96 Kombinationen
 Zielfunktion: Amortisationszeit (primär), sortierbar nach allen Kennzahlen (IRR, 10J-Gewinn, …)</div>
 
+<hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border);">
+<div style="font-size:0.75rem;color:var(--muted);line-height:1.8;">
+  <p><sup>1</sup> CM SAF SARAH-2, Zeitraum 2005–2020, abgerufen über PVGIS 5.2, EU Science Hub. https://re.jrc.ec.europa.eu/pvg_tools/en/</p>
+  <p><sup>2</sup> Astronomische Berechnung für den 15. jedes Monats, CET (UTC+1), ohne Sommerzeit. Nach NOAA Solar Calculator.</p>
+  <p><sup>3</sup> Vereinfachtes Modell nach DWD-Klimadaten (Referenzperiode 1991–2020). Tatsächliche Schneedeckentage variieren regional erheblich. Die im Simulator verwendeten Defaults (0/5/15/34 Tage) sind konservative Mittelwerte für PV-Ertragsminderung. Quelle: DWD, „Schneedecke".</p>
+  <p><sup>4</sup> Empirische Verteilung der Schneetage auf Wintermonate, abgeleitet aus DWD-Monatsmittelwerten für Mittelgebirgsstationen.</p>
+  <p><sup>5</sup> §12a EEG 2023 i.V.m. Solarpaket I (BGBl. 2024 I Nr. 151), in Kraft seit 16.05.2024. Erhöhung der Bagatellgrenze von 600 W auf 800 W für steckerfertige PV-Anlagen.</p>
+  <p><sup>6</sup> Herstellerangabe Solakon GmbH, Produkt „Solakon ONE", Stand 2024. Nutzbare Kapazität nach Entladetiefe (DoD).</p>
+  <p><sup>7</sup> Typischer Round-Trip-Wirkungsgrad für LiFePO₄-Zellen. Literaturbereich: 90–95%. Quelle: Dubarry et al., „Battery Energy Storage System modeling", Journal of Power Sources, 2019.</p>
+</div>
+
 <h4 ${hs}>7. Quellenverzeichnis</h4>
 <ol style="padding-left:1.2rem;line-height:2;">
   <li><strong>Einstrahlungsdaten:</strong> PVGIS-SARAH2, European Commission Joint Research Centre — <a href="https://re.jrc.ec.europa.eu/pvg_tools/en/" target="_blank" style="color:var(--accent);">re.jrc.ec.europa.eu</a></li>
   <li><strong>Sonnenzeiten:</strong> Astronomische Berechnung für den 15. jedes Monats, CET (UTC+1), ohne Sommerzeit</li>
-  <li><strong>Einspeisegrenze:</strong> §12a EEG 2023 i.V.m. §53 GEG — 800 W AC-Obergrenze für Balkonkraftwerke seit April 2024</li>
-  <li><strong>Solakon ONE:</strong> 4 MPPT-Eingänge, 800 W AC-Limit, 2,11 kWh LiFePO₄ integriert</li>
+  <li><strong>Einspeisegrenze:</strong> §12a EEG 2023 i.V.m. Solarpaket I (BGBl. 2024 I Nr. 151), in Kraft seit 16.05.2024 — 800 W AC-Obergrenze für Balkonkraftwerke</li>
+  <li><strong>Solakon ONE:</strong> 4 MPPT-Eingänge, 800 W AC-Limit, 2,11 kWh LiFePO₄ integriert (Herstellerangabe Solakon GmbH, Stand 2024)</li>
   <li><strong>Batteriewirkungsgrad:</strong> 92% Round-Trip für LiFePO₄ — typischer Herstellerwert (BYD, CATL)</li>
 </ol>`;
 }
