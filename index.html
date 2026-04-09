@@ -105,6 +105,8 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem 50p
   #results { max-width:100%; }
   .chart-wrap { break-inside:avoid; }
   #methodology { break-before:page; }
+  #methodology details { open:true; }
+  #printBtn { display:none; }
   #disclaimer, #impressum { break-inside:avoid; }
   body { font-size:11px; }
   .kpi-grid { grid-template-columns:repeat(4,1fr); }
@@ -992,7 +994,7 @@ function updateMethodology(r, p, f) {
 
   el.innerHTML = `
 <h4 ${hs}>1. PV-Produktionsmodell</h4>
-<p><strong>Datenquelle:</strong> PVGIS-SARAH2 (European Commission Joint Research Centre)<sup style="color:var(--accent);cursor:help;" title="CM SAF SARAH-2, Zeitraum 2005–2020, PVGIS 5.2, EU Science Hub. https://re.jrc.ec.europa.eu/pvg_tools/en/">¹</sup> — monatliche mittlere Globalstrahlung auf horizontaler Fläche.</p>
+<p><strong>Datenquelle:</strong> PVGIS-SARAH2 (European Commission Joint Research Centre)<sup style="color:var(--accent);cursor:help;" title="Satellite Application Facility on Climate Monitoring (CM SAF). Datenbank: SARAH-2, Zeitraum 2005–2020. Abgerufen über PVGIS 5.2, EU Science Hub. https://re.jrc.ec.europa.eu/pvg_tools/en/">¹</sup> — monatliche mittlere Globalstrahlung auf horizontaler Fläche.</p>
 <div ${cs}>PV_month(m) = G_h(m) × d(m) × P_peak × (1 − f_derating) × (1 − f_snow(m))</div>
 <table ${ts}>
   <tr><th ${thS}>Parameter</th><th ${thS}>Wert</th></tr>
@@ -1002,7 +1004,7 @@ function updateMethodology(r, p, f) {
   <tr><td ${tdS}>Sonnenaufgang/−untergang Jul<sup style="color:var(--accent);cursor:help;" title="Astronomische Berechnung für den 15. jedes Monats, CET (UTC+1), ohne Sommerzeit. Nach NOAA Solar Calculator.">²</sup></td><td ${tdA}>${ac(f1(sunJ[0])+' / '+f1(sunJ[1])+' Uhr (CET)')}</td></tr>
 </table>
 <p><strong>Tagesgang:</strong> <code>w(h) = sin((h − t_rise)/(t_set − t_rise) × π)</code>, normiert auf Tagesproduktion.</p>
-<p><strong>Schneetage:</strong> ${ac(p.snowDays)} /Jahr (${p.location}: ${loc.elevation} m ü. NHN, Default ${defSnow} Tage<sup style="color:var(--accent);cursor:help;" title="Vereinfachtes Modell nach DWD-Klimadaten (1991–2020). Defaults (0/5/15/34 Tage) sind konservative Mittelwerte für die PV-Ertragsminderung, nicht meteorologische Schneedeckentage.">³</sup>)</p>
+<p><strong>Schneetage:</strong> ${ac(p.snowDays)} /Jahr (${p.location}: ${loc.elevation} m ü. NHN, Default ${defSnow} Tage<sup style="color:var(--accent);cursor:help;" title="Vereinfachtes Modell basierend auf DWD-Klimadaten (Referenzperiode 1991–2020). Tieflagen (&lt;200 m): 0–40 Tage; Mittelgebirge (400–600 m): 20–60 Tage; Hochlagen (&gt;600 m): 60–120+ Tage. Defaults (0/5/15/34 Tage) sind konservative Mittelwerte für die PV-Ertragsminderung. Quelle: DWD, Schneedecke.">³</sup>)</p>
 <table ${ts}>
   <tr><th ${thS}>Monat</th><th ${thS}>Jan</th><th ${thS}>Feb</th><th ${thS}>Mär</th><th ${thS}>Nov</th><th ${thS}>Dez</th></tr>
   <tr><td ${tdS}>Anteil<sup style="color:var(--accent);cursor:help;" title="Empirische Verteilung der Schneetage auf Wintermonate, abgeleitet aus DWD-Monatsmittelwerten für Mittelgebirgsstationen.">⁴</sup></td><td ${tdS}>30%</td><td ${tdS}>25%</td><td ${tdS}>10%</td><td ${tdS}>10%</td><td ${tdS}>25%</td></tr>
@@ -1076,9 +1078,9 @@ Zielfunktion: Amortisationszeit (primär), sortierbar nach allen Kennzahlen (IRR
 
 <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border);">
 <div style="font-size:0.75rem;color:var(--muted);line-height:1.8;">
-  <p><sup>1</sup> CM SAF SARAH-2, Zeitraum 2005–2020, abgerufen über PVGIS 5.2, EU Science Hub. https://re.jrc.ec.europa.eu/pvg_tools/en/</p>
+  <p><sup>1</sup> Satellite Application Facility on Climate Monitoring (CM SAF). Datenbank: SARAH-2, Zeitraum 2005–2020. Abgerufen über PVGIS 5.2, EU Science Hub. https://re.jrc.ec.europa.eu/pvg_tools/en/</p>
   <p><sup>2</sup> Astronomische Berechnung für den 15. jedes Monats, CET (UTC+1), ohne Sommerzeit. Nach NOAA Solar Calculator.</p>
-  <p><sup>3</sup> Vereinfachtes Modell nach DWD-Klimadaten (Referenzperiode 1991–2020). Tatsächliche Schneedeckentage variieren regional erheblich. Die im Simulator verwendeten Defaults (0/5/15/34 Tage) sind konservative Mittelwerte für PV-Ertragsminderung. Quelle: DWD, „Schneedecke".</p>
+  <p><sup>3</sup> Vereinfachtes Modell basierend auf DWD-Klimadaten (Referenzperiode 1991–2020). Tatsächliche Schneedeckentage variieren regional erheblich. Tieflagen (&lt;200 m): 0–40 Tage je nach Region; Mittelgebirge (400–600 m): 20–60 Tage; Hochlagen (&gt;600 m): 60–120+ Tage. Die im Simulator verwendeten Defaults (0/5/15/34 Tage) sind konservative Mittelwerte für die PV-Ertragsminderung, nicht meteorologische Schneedeckentage. Quelle: DWD, „Schneedecke", https://www.dwd.de/DE/service/lexikon/begriffe/S/Schneedecke_pdf.pdf</p>
   <p><sup>4</sup> Empirische Verteilung der Schneetage auf Wintermonate, abgeleitet aus DWD-Monatsmittelwerten für Mittelgebirgsstationen.</p>
   <p><sup>5</sup> §12a EEG 2023 i.V.m. Solarpaket I (BGBl. 2024 I Nr. 151), in Kraft seit 16.05.2024. Erhöhung der Bagatellgrenze von 600 W auf 800 W für steckerfertige PV-Anlagen.</p>
   <p><sup>6</sup> Herstellerangabe Solakon GmbH, Produkt „Solakon ONE", Stand 2024. Nutzbare Kapazität nach Entladetiefe (DoD).</p>
