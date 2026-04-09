@@ -398,7 +398,7 @@ main { display:grid; grid-template-columns:340px 1fr; gap:1rem; padding:1rem 50p
       <li>Keine Wechselrichterverluste (im Derating-Faktor pauschal enthalten)</li>
       <li>Keine saisonale Batteriedegradation oder kalendarische Alterung</li>
       <li>Einstrahlungsdaten sind langjährige Mittelwerte — Einzeljahre können ±15 % abweichen</li>
-      <li><strong style="color:var(--text);">Stündliche Zeitauflösung:</strong> Hochlast-Spitzen innerhalb einer Stunde (Wasserkocher 2 kW, Herd 3 kW, Durchlauferhitzer 18 kW) werden über die Stunde gemittelt. Da der Wechselrichter maximal 800 W AC liefert, können Verbraucher &gt; 800 W in der Realität nie vollständig durch PV gedeckt werden — das Modell überschätzt den Deckungsgrad für Haushalte mit häufigen Hochlast-Spitzen. Die Einstellung „Aktive Stunden" kompensiert dies teilweise durch Lastkonzentration.</li>
+      <li><strong style="color:var(--text);">Spitzenlast-Korrektur:</strong> 50 % des variablen Verbrauchs wird pauschal als Großverbraucher (2000 W) modelliert. Da der Wechselrichter maximal 800 W AC liefert, können davon nur 40 % durch PV gedeckt werden — die restlichen 60 % gehen immer ans Netz. Die tatsächliche Spitzenlastverteilung hängt vom individuellen Nutzungsverhalten ab.</li>
     </ul>
     <p style="margin-top:0.75rem;">Die angegebenen Einstrahlungsdaten stammen aus der PVGIS-SARAH2-Datenbank (Referenzperiode 2005–2020) und beziehen sich auf die horizontale Globalstrahlung. Reale PV-Erträge hängen zusätzlich von Ausrichtung, Neigung und lokaler Verschattung ab, die hier nur über den Derating-Faktor pauschal berücksichtigt werden.</p>
     <p style="margin-top:0.75rem;">Für verbindliche Ertragsprognosen und Wirtschaftlichkeitsberechnungen wird die Beratung durch einen qualifizierten Energieberater empfohlen.</p>
@@ -477,6 +477,8 @@ const SUNRISE_SUNSET = {
 const DAYS_PER_MONTH = [0,31,28,31,30,31,30,31,31,30,31,30,31];
 const MONTH_NAMES = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 const SNOW_DIST = {1:0.30,2:0.25,3:0.10,11:0.10,12:0.25};
+const SPIKE_FRACTION = 0.50;   // 50% des variablen Verbrauchs sind Spitzenlast
+const SPIKE_POWER_W  = 2000;   // Mittlere Leistung der Großverbraucher (W)
 
 // ===== SCHNEETAGE DEFAULT (spec V1.2 Tabelle) =====
 function defaultSnowDays(elevation) {
@@ -576,12 +578,29 @@ function simulateYear(p) {
         hPv[h] += pvW / 1000;
 
         if (pvW > 0) {
-          const pvForLoadW   = Math.min(pvW, loadW, acMaxW);
-          const pvForLoadKWh = pvForLoadW / 1000;
+          // Spitzenlast-Korrektur: variablen Lastanteil aufteilen
+          const baseLoadW_h = (p.yearlyConsumption * p.baseFraction / 100) / 8760 * 1000;
+          const varLoadW_h  = Math.max(0, loadW - baseLoadW_h);
+          const normalLoadW = baseLoadW_h + varLoadW_h * (1 - SPIKE_FRACTION);
+          const spikeLoadW  = varLoadW_h * SPIKE_FRACTION;
+          const spikePvCoverageRatio = Math.min(1, acMaxW / SPIKE_POWER_W);
+
+          const pvForNormalW = Math.min(pvW, normalLoadW, acMaxW);
+          let remPvW = pvW - pvForNormalW;
+
+          const spikeKWhTotal = spikeLoadW / 1000;
+          const spikePvKWh    = spikeKWhTotal * spikePvCoverageRatio;
+          const pvForSpikeW   = Math.min(remPvW, spikePvKWh * 1000);
+          remPvW -= pvForSpikeW;
+
+          const spikeGridKWh  = spikeKWhTotal * (1 - spikePvCoverageRatio);
+          const pvForLoadKWh  = (pvForNormalW + pvForSpikeW) / 1000;
+
           mo.pv_to_load += pvForLoadKWh;
           hPvToLoad[h]  += pvForLoadKWh;
-          let remLoad = loadKWh - pvForLoadKWh;
-          let remPvW  = pvW - pvForLoadW;
+          mo.grid_to_load += spikeGridKWh;
+          hGrid[h]        += spikeGridKWh;
+          let remLoad = loadKWh - pvForLoadKWh - spikeGridKWh;
 
           // Bug 3: AC-Limit für Tages-Batterieentladung
           if (remLoad > 1e-9 && batSOC > 1e-9) {
@@ -691,11 +710,26 @@ function simulateYearTotals(p) {
         const pvW = (!isSnow && tw > 0 && w[h] > 0) ? (w[h] / tw) * dailyProdKWh * 1000 : 0;
 
         if (pvW > 0) {
-          const pvForLoadW   = Math.min(pvW, loadW, acMaxW);
-          const pvForLoadKWh = pvForLoadW / 1000;
+          // Spitzenlast-Korrektur: variablen Lastanteil aufteilen
+          const baseLoadW_h = (p.yearlyConsumption * p.baseFraction / 100) / 8760 * 1000;
+          const varLoadW_h  = Math.max(0, loadW - baseLoadW_h);
+          const normalLoadW = baseLoadW_h + varLoadW_h * (1 - SPIKE_FRACTION);
+          const spikeLoadW  = varLoadW_h * SPIKE_FRACTION;
+          const spikePvCoverageRatio = Math.min(1, acMaxW / SPIKE_POWER_W);
+
+          const pvForNormalW = Math.min(pvW, normalLoadW, acMaxW);
+          let remPvW = pvW - pvForNormalW;
+
+          const spikeKWhTotal = spikeLoadW / 1000;
+          const spikePvKWh    = spikeKWhTotal * spikePvCoverageRatio;
+          const pvForSpikeW   = Math.min(remPvW, spikePvKWh * 1000);
+          remPvW -= pvForSpikeW;
+
+          const spikeGridKWh  = spikeKWhTotal * (1 - spikePvCoverageRatio);
+          const pvForLoadKWh  = (pvForNormalW + pvForSpikeW) / 1000;
+
           pvToLoad += pvForLoadKWh;
-          let remLoad = loadKWh - pvForLoadKWh;
-          let remPvW  = pvW - pvForLoadW;
+          let remLoad = loadKWh - pvForLoadKWh - spikeGridKWh;
 
           // Bug 3: AC-Limit für Tages-Batterieentladung
           if (remLoad > 1e-9 && batSOC > 1e-9) {
@@ -999,6 +1033,7 @@ function updateMethodology(r, p, f) {
 Nachts (PV = 0):
   1. Bat → Last:       min(Last/η, SOC, AC_max/η)
   2. Netz → Last:      verbleibende Last</div>
+<p><strong>Spitzenlast-Korrektur</strong><sup style="color:var(--accent);cursor:help;" title="Pauschale Modellierung: 50% des variablen Lastanteils entfällt auf Großverbraucher (Herd, Wasserkocher, Boiler) mit mittlerer Leistung 2000 W. Da der WR nur 800 W AC liefert, können davon max. 40% durch PV gedeckt werden. Konservative Annahme zur Kompensation der stündlichen Zeitauflösung.">⁸</sup>: ${Math.round(SPIKE_FRACTION*100)}% des variablen Lastanteils wird als Großverbraucher (mittlere Leistung ${SPIKE_POWER_W} W) modelliert. Da der WR maximal ${acMax} W AC liefert, können davon nur ${Math.round(Math.min(1, acMax/SPIKE_POWER_W)*100)}% durch PV gedeckt werden. Die restlichen ${100-Math.round(Math.min(1, acMax/SPIKE_POWER_W)*100)}% gehen immer ans Netz.</p>
 <p><strong>Bilanzgleichungen (Jahressummen):</strong></p>
 <table ${ts}>
   <tr><th ${thS}>Gleichung</th><th ${thS}>Berechnet</th><th ${thS}>Soll</th><th ${thS}>Δ</th></tr>
@@ -1048,6 +1083,7 @@ Zielfunktion: Amortisationszeit (primär), sortierbar nach allen Kennzahlen (IRR
   <p><sup>5</sup> §12a EEG 2023 i.V.m. Solarpaket I (BGBl. 2024 I Nr. 151), in Kraft seit 16.05.2024. Erhöhung der Bagatellgrenze von 600 W auf 800 W für steckerfertige PV-Anlagen.</p>
   <p><sup>6</sup> Herstellerangabe Solakon GmbH, Produkt „Solakon ONE", Stand 2024. Nutzbare Kapazität nach Entladetiefe (DoD).</p>
   <p><sup>7</sup> Typischer Round-Trip-Wirkungsgrad für LiFePO₄-Zellen. Literaturbereich: 90–95%. Quelle: Dubarry et al., „Battery Energy Storage System modeling", Journal of Power Sources, 2019.</p>
+  <p><sup>8</sup> Pauschale Modellierung: 50% des variablen Lastanteils entfällt auf Großverbraucher (Herd, Wasserkocher, Boiler) mit mittlerer Leistung 2000 W. Da der WR nur 800 W AC liefert, können davon max. 40% durch PV gedeckt werden. Konservative Annahme zur Kompensation der stündlichen Zeitauflösung.</p>
 </div>
 
 <h4 ${hs}>7. Quellenverzeichnis</h4>
